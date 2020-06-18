@@ -104,7 +104,7 @@ data Value =
   | VNat
   | VZero
   | VAdd1 Value
-  | VEq Ty Value Value
+  | VEqual Ty Value Value
   | VSame
   | VTrivial
   | VSole
