@@ -37,32 +37,32 @@ newVar = "x"
 type Chars = String
 
 data Expr =
-    Var Name                                       -- v
-  | Pi Name (Expr) (Expr)                       -- (a : A) -> B
-  | Lam Name (Expr)                                -- fun x => expr
-  | App (Expr) (Expr)                        -- rator rand
-  | Sigma Name (Expr) (Expr)                    -- (x : 
-  | Cons (Expr) (Expr)                       -- cons fst snd
-  | Car (Expr)                                  -- car p
-  | Cdr (Expr)                                  -- cdr p
-  | Nat                                            -- nat
-  | Zero                                           -- zero
-  | Add1 (Expr)                                 -- add1
-  | IndNat (Expr) (Expr) (Expr) (Expr) -- ind-Nat tgt mot base step
+    Var Name                              -- v
+  | Pi Name (Expr) (Expr)                 -- (a : A) -> B
+  | Lam Name (Expr)                       -- fun x => expr
+  | App (Expr) (Expr)                     -- rator rand
+  | Sigma Name (Expr) (Expr)              -- (a : A) x B
+  | Cons (Expr) (Expr)                    -- cons fst snd
+  | Car (Expr)                            -- car p
+  | Cdr (Expr)                            -- cdr p
+  | Nat                                   -- nat
+  | Zero                                  -- zero
+  | Add1 (Expr)                           -- add1
+  | IndNat (Expr) (Expr) (Expr) (Expr)    -- ind-Nat tgt mot base step
   | Equal (Expr) (Expr) (Expr)            -- eq A from to
-  | Same                                           -- refl
+  | Same                                  -- refl
   | Replace (Expr) (Expr) (Expr)          -- trans
-                                                   --   (eq : eq P from to)
-                                                   --   (mot : P -> Type)
-                                                   --   base : mot from
-  | Trivial                                        -- Unit
-  | Sole                                           -- t : Unit
-  | Absurd                                         -- False
-  | IndAbsurd (Expr) (Expr)                  -- ind-Absurd (tgt : False) (ty : Type)
-  | Atom                                           -- Atom
-  | Tick Chars                                     -- 'a
-  | U                                              -- Type
-  | The (Expr) (Expr)                        -- (exp : ty)
+                                          --   (eq : eq P from to)
+                                          --   (mot : P -> Type)
+                                          --   base : mot from
+  | Trivial                               -- Unit
+  | Sole                                  -- t : Unit
+  | Absurd                                -- False
+  | IndAbsurd (Expr) (Expr)               -- ind-Absurd (tgt : False) (ty : Type)
+  | Atom                                  -- Atom
+  | Tick Chars                            -- 'a
+  | U                                     -- Type
+  | The (Expr) (Expr)                     -- (exp : ty)
   deriving (Eq, Ord, Show)
 
 
@@ -191,6 +191,8 @@ alphaEquiv e1 e2 = alphaHelper 0 (Map.empty) e1 (Map.empty) e2
     alphaHelper b ns1 e1 ns2 e2 &&
     alphaHelper b ns1 ty1 ns2 ty2
 
+-- if both values are of type absurd then skip alpha equivalence test
+  alphaHelper _ _ (The Absurd _) _ (The Absurd _) = True
   alphaHelper _ _ term1 _ term2 = term1 == term2
 
   
