@@ -145,7 +145,27 @@ readBackTyped ctx ty val = readBackError "readBackTyped" ty val
 
 
 readBackNeutral :: Ctx -> Neutral -> Expr
-readBackNeutral = undefined
+readBackNeutral ctx (NVar v) = Var v
+readBackNeutral ctx (NApp f a) = App (readBackNeutral ctx f) (readBackNormal ctx a)
+readBackNeutral ctx (NCar neu) = Car (readBackNeutral ctx neu)
+readBackNeutral ctx (NCdr neu) = Cdr (readBackNeutral ctx neu)
+readBackNeutral ctx (NIndNat n mot base step) =
+  IndNat
+    (readBackNeutral ctx n)
+    (readBackNormal ctx mot)
+    (readBackNormal ctx base)
+    (readBackNormal ctx step)
+readBackNeutral ctx (NReplace eq mot base) =
+  Replace
+    (readBackNeutral ctx eq)
+    (readBackNormal ctx mot)
+    (readBackNormal ctx base)
+readBackNeutral ctx (NIndAbsurd absurd ty) =
+  IndAbsurd
+    (The Absurd (readBackNeutral ctx absurd))
+    (readBackNormal ctx ty)
+
+
 
 
 tyCheckError :: String -> [Value] -> Value
