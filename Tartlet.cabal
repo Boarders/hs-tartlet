@@ -62,8 +62,10 @@ Library Core
 
   exposed-modules:
       Core.Expression
-      Core.Context
       Core.Eval
+      Core.Eval.EnvMachine.Context
+      Core.Eval.EnvMachine.Value
+      Core.Eval.EnvMachine.Eval
 --      Core.Parser.Type
 --      Core.Parser.Term
 --      Core.Parser.Lex

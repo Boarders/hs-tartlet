@@ -1,9 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Core.Eval where
+module Core.Eval (
+    module Value
+  , module Context
+  , module Eval
+  ) where
 
 import Core.Expression
-import Core.Context
+import Core.Eval.EnvMachine.Value as Value
+import Core.Eval.EnvMachine.Context as Context
+import Core.Eval.EnvMachine.Eval as Eval
 
+{-
 
 eval :: Env -> Expr -> Value
 eval env (Var v) = evalVar env v
@@ -213,4 +220,6 @@ readBackError funName ty val = error $
     [ "Internal error (" <> funName <> "): typecheckerError"
     , "value: " <> show val
     , "wrong type: " <> show ty
-    ] 
+    ]
+
+-}

@@ -66,6 +66,7 @@ data Expr =
   deriving (Eq, Ord, Show)
 
 
+{-
 newtype Env = Env [(Name, Value)]
   deriving (Eq, Ord, Show)
 
@@ -130,7 +131,7 @@ data Neutral =
 data Normal = Normal Ty Value
   deriving (Eq, Ord, Show)
 
-
+-}
 
 alphaEquiv :: Expr -> Expr -> Bool
 alphaEquiv e1 e2 = alphaHelper 0 (Map.empty) e1 (Map.empty) e2
