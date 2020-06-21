@@ -66,6 +66,9 @@ Library Core
       Core.Eval.EnvMachine.Context
       Core.Eval.EnvMachine.Value
       Core.Eval.EnvMachine.Eval
+      Core.Eval.MetaLang.Context
+      Core.Eval.MetaLang.Value
+      Core.Eval.MetaLang.Eval
 --      Core.Parser.Type
 --      Core.Parser.Term
 --      Core.Parser.Lex
