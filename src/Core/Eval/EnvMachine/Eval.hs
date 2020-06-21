@@ -7,7 +7,8 @@ import Core.Eval.EnvMachine.Value
 
 
 eval :: Env -> Expr -> Value
-eval env (Var v) = evalVar env v
+eval env (Loc v) = evalVar env v
+eval env (Top v) = evalVar env v
 eval env (Pi a dom dep) = VPi (eval env dom) (Closure env a dep)
 eval env (Lam v body) = VLam (Closure env v body)
 eval env (App fn arg) = doApply (eval env fn) (eval env arg)

@@ -6,6 +6,7 @@
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE PatternSynonyms     #-}
 
 module Core.Expression where
 
@@ -37,7 +38,9 @@ newVar = "x"
 type Chars = String
 
 data Expr =
-    Var Name                              -- v
+  
+    Loc Name                              -- local variable
+  | Top Name                              -- top level variable
   | Pi Name (Expr) (Expr)                 -- (a : A) -> B
   | Lam Name (Expr)                       -- fun x => expr
   | App (Expr) (Expr)                     -- rator rand
@@ -66,6 +69,11 @@ data Expr =
   deriving (Eq, Ord, Show)
 
 
+pattern Var :: Name -> Expr
+pattern Var n <- Loc n
+  where
+    Var v = Var v
+--{-# COMPLETE Nil, (:|>) #-}
 {-
 newtype Env = Env [(Name, Value)]
   deriving (Eq, Ord, Show)
