@@ -6,9 +6,9 @@ module Core.Eval (
   ) where
 
 import Core.Expression
-import Core.Eval.EnvMachine.Value as Value
-import Core.Eval.EnvMachine.Context as Context
-import Core.Eval.EnvMachine.Eval as Eval
+import Core.Eval.MetaLang.Value as Value
+import Core.Eval.MetaLang.Value as Context
+import Core.Eval.MetaLang.Eval as Eval
 
 {-
 

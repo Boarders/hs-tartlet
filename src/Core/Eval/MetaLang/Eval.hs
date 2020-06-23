@@ -44,7 +44,6 @@ eval topEnv locEnv =
     U -> VU
     (The _ e) -> eval topEnv locEnv e
 
-  
 
 evalLocVar :: LocalEnv -> Name -> Value
 evalLocVar locEnv name = maybe (lookupLocError "evalLocVar" name) id  . join $ lookup name locEnv
@@ -72,8 +71,8 @@ lookupLocError funName name = error $
   unlines
     [ "Internal error (" <> funName <> "): lookupError"
     , show name
-    ]    
-    
+    ]
+
 
 tyCheckError :: String -> [Value] -> Value
 tyCheckError funName vals = error $
@@ -126,7 +125,7 @@ doReplace (VNeutral (VEqual ty from to) neu) mot base =
   let
     transTgt = doApply mot to
     motT     = VPi "_" ty \_ -> VU
-    baseT    = doApply motT from 
+    baseT    = doApply motT from
   in
     VNeutral transTgt (NReplace neu (Normal motT mot) (Normal baseT base))
 doReplace eq mot base = tyCheckError "doReplace" [eq, mot, base]
@@ -144,7 +143,7 @@ indNatStepType mot =
          )
       )
     )
-      
+
 doIndNatStep :: Value -> Value -> Value -> Value -> Value
 doIndNatStep VZero _ base _ = base
 doIndNatStep (VAdd1 nV) mot base step =
@@ -180,7 +179,6 @@ readBackTyped locEnv topEnv (VPi n domT depT) fun =
     var    = freshen locEnv (name n)
     varVal = undefined
   in
-    
     Lam var
       (readBackTyped
         (extendEnv locEnv var domT)
@@ -240,7 +238,7 @@ readBackNeutral locEnv topEnv =
     localReadNeutral = readBackNeutral locEnv topEnv
     localReadNormal = readBackNormal  locEnv topEnv
   in \case
-    
+
   (NVar v) -> Var v
   (NApp f a) -> App (localReadNeutral f) (localReadNormal a)
   (NCar neu) -> Car (localReadNeutral neu)
@@ -267,19 +265,3 @@ readBackError funName ty val = error $
   unlines $
     [ "Internal error (" <> funName <> "): typecheckerError"
     ]
-{-
-tyCheckError :: String -> [Value] -> Value
-tyCheckError funName vals = error $
-  unlines $
-    [ "Internal error (" <> funName <> "): typecheckerError"
-    ] <>
-    map show vals
-
-readBackError :: String -> Value -> Value -> Expr
-readBackError funName ty val = error $
-  unlines $
-    [ "Internal error (" <> funName <> "): typecheckerError"
-    , "value: " <> show val
-    , "wrong type: " <> show ty
-    ]
--}

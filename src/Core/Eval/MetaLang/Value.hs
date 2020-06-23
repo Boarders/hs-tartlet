@@ -11,6 +11,7 @@ import Data.String
 
 type TopEnv = [(Name, Normal)]
 type LocalEnv = [(Name, Maybe Value)]
+type Cxt = (LocalEnv, TopEnv)
 
 extendEnv :: LocalEnv -> Name -> Value -> LocalEnv
 extendEnv env v val = ((v, Just val) : env)
@@ -22,7 +23,7 @@ findMaxId ctx str = go Nothing ctx
     go acc [] = acc
     go acc ((Name{..}, _) : xs) | str == name = go (liftA2 max acc (Just iD)) xs
                                 | otherwise = go acc xs
-             
+
 freshen :: LocalEnv -> String -> Name
 freshen ctx str =
   case findMaxId ctx str  of
@@ -68,4 +69,3 @@ data Normal = Normal
   { normalTy   :: Ty
   , normalVal :: Value
   }
-

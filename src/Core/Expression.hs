@@ -38,7 +38,6 @@ newVar = "x"
 type Chars = String
 
 data Expr =
-  
     Loc Name                              -- local variable
   | Top Name                              -- top level variable
   | Pi Name (Expr) (Expr)                 -- (a : A) -> B
@@ -73,73 +72,6 @@ pattern Var :: Name -> Expr
 pattern Var n <- Loc n
   where
     Var v = Var v
---{-# COMPLETE Nil, (:|>) #-}
-{-
-newtype Env = Env [(Name, Value)]
-  deriving (Eq, Ord, Show)
-
-extendEnv :: Env -> Name -> Value -> Env
-extendEnv (Env env) v val = Env ((v, val) : env)
-
-evalVar :: Env -> Name -> Value
-evalVar (Env []) v = error $ "evalVar: Unable to find variable " <> (show v)
-evalVar (Env ((y, val) : env)) x
-  | x == y = val
-  | otherwise = evalVar (Env env) x
-
-emptyEnv :: Env
-emptyEnv = Env []
-                                   
-  
-
-data Closure = Closure
-  { closureEnv  :: Env
-  , closureName :: Name
-  , closureBody :: Expr
-  }
-  deriving (Eq, Ord, Show)
-
-getClosureName :: Closure -> String
-getClosureName = name . closureName
-
-
-type Ty = Value
-
-data Value =
-    VPi Ty Closure
-  | VLam Closure
-  | VSigma Ty Closure
-  | VPair Value Value
-  | VNat
-  | VZero
-  | VAdd1 Value
-  | VEqual Ty Value Value
-  | VSame
-  | VTrivial
-  | VSole
-  | VAbsurd
-  | VAtom
-  | VTick Chars
-  | VU
-  | VNeutral Ty Neutral
-  deriving (Eq, Ord, Show)
-
-
-data Neutral =
-    NVar Name
-  | NApp Neutral Normal
-  | NCar Neutral
-  | NCdr Neutral
-  | NIndNat Neutral Normal Normal Normal
-  | NReplace Neutral Normal Normal
-  | NIndAbsurd Neutral Normal
-  deriving (Eq, Ord, Show)
-
-
-data Normal = Normal Ty Value
-  deriving (Eq, Ord, Show)
-
--}
 
 alphaEquiv :: Expr -> Expr -> Bool
 alphaEquiv e1 e2 = alphaHelper 0 (Map.empty) e1 (Map.empty) e2
@@ -203,9 +135,3 @@ alphaEquiv e1 e2 = alphaHelper 0 (Map.empty) e1 (Map.empty) e2
 -- if both values are of type absurd then skip alpha equivalence test
   alphaHelper _ _ (The Absurd _) _ (The Absurd _) = True
   alphaHelper _ _ term1 _ term2 = term1 == term2
-
-  
-
-  
-  
-  
