@@ -46,7 +46,7 @@ eval topEnv locEnv =
 
 
 evalLocVar :: LocalEnv -> Name -> Value
-evalLocVar locEnv name = maybe (lookupLocError "evalLocVar" name) id  . join $ lookup name locEnv
+evalLocVar locEnv name = maybe (lookupLocError "evalLocVar" name) id  $ lookup name locEnv
 
 
 evalTopVar :: TopEnv -> Name -> Value
@@ -131,11 +131,10 @@ doReplace (VNeutral (VEqual ty from to) neu) mot base =
 doReplace eq mot base = tyCheckError "doReplace" [eq, mot, base]
 
 
-
-
 indNatStepType :: Value -> Value
 indNatStepType mot =
-  eval [] [("mot", Just mot)]
+-- could write this out explicitly?
+  eval [] [("mot", mot)]
     (Pi "n-1" Nat
       (Pi "ind"
          (App (Var "mot") (Var "n-1"))
@@ -177,7 +176,7 @@ readBackTyped locEnv topEnv VNat (VAdd1 nV) = Add1 (readBackTyped locEnv topEnv 
 readBackTyped locEnv topEnv (VPi n domT depT) fun =
   let
     var    = freshen locEnv (name n)
-    varVal = undefined
+    varVal = VNeutral domT (NVar var)
   in
     Lam var
       (readBackTyped

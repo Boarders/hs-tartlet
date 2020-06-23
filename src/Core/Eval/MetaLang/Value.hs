@@ -9,12 +9,14 @@ import Control.Monad
 import Control.Applicative
 import Data.String
 
-type TopEnv = [(Name, Normal)]
-type LocalEnv = [(Name, Maybe Value)]
-type Cxt = (LocalEnv, TopEnv)
+type TopEnv   = [(Name, Normal)]
+-- kovacs uses [(Name, Maybe Value)] as often we know
+-- the type of the variable on a lambda anyway so we duplicate this information
+type LocalEnv = [(Name, Value)]
+type Ctx = (LocalEnv, TopEnv)
 
 extendEnv :: LocalEnv -> Name -> Value -> LocalEnv
-extendEnv env v val = ((v, Just val) : env)
+extendEnv env v val = ((v, val) : env)
 
 
 findMaxId :: LocalEnv -> String -> Maybe Int
