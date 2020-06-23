@@ -17,11 +17,11 @@ eval topEnv locEnv =
   \case
     (Loc v) -> evalLocVar locEnv v
     (Top v) -> evalTopVar topEnv v
-    (Pi n dom dep) -> VPi (localEval dom) \val -> binderEval n dep val
+    (Pi n dom dep) -> VPi n (localEval dom) \val -> binderEval n dep val
     (Lam n body) -> VLam n \val -> eval topEnv (extendEnv locEnv n val) body
     (App fn arg) -> doApply (localEval fn) (localEval arg)
     (Sigma a carT cdrT) ->
-      VSigma (localEval carT) \val -> binderEval a cdrT val
+      VSigma a (localEval carT) \val -> binderEval a cdrT val
     (Cons f s) -> VPair (localEval f) (localEval s)
     (Car p) -> doCar (localEval p)
     (Cdr p) -> doCdr (localEval p)
@@ -83,12 +83,12 @@ tyCheckError funName vals = error $
 
 doApply :: Value -> Value -> Value
 doApply (VLam _ fn) ~arg = fn arg
-doApply (VNeutral (VPi domT depT) neu) ~arg =
+doApply (VNeutral (VPi _ domT depT) neu) ~arg =
   let
     subDepT = depT arg
   in
     VNeutral subDepT (NApp neu (Normal domT arg))
-doApply (VTop v neu (VPi domT depT) val) ~arg =
+doApply (VTop v neu (VPi _ domT depT) val) ~arg =
   let
     subDepT = depT arg
   in
@@ -98,12 +98,12 @@ doApply fun arg = tyCheckError "doApply" [fun, arg]
 
 doCar :: Value -> Value
 doCar (VPair f _) = f
-doCar (VNeutral (VSigma domT _) neu) = VNeutral domT (NCar neu)
+doCar (VNeutral (VSigma _ domT _) neu) = VNeutral domT (NCar neu)
 doCar val = tyCheckError "doCar" [val]
 
 doCdr :: Value -> Value
 doCdr (VPair _ s) = s
-doCdr neuV@(VNeutral (VSigma _ depT) neu) =
+doCdr neuV@(VNeutral (VSigma _ _ depT) neu) =
   let
     subDepT = depT (doCar neuV)
   in
@@ -125,7 +125,7 @@ doReplace VSame _ base = base
 doReplace (VNeutral (VEqual ty from to) neu) mot base =
   let
     transTgt = doApply mot to
-    motT     = VPi ty \_ -> VU
+    motT     = VPi "_" ty \_ -> VU
     baseT    = doApply motT from 
   in
     VNeutral transTgt (NReplace neu (Normal motT mot) (Normal baseT base))
@@ -152,7 +152,7 @@ doIndNatStep (VAdd1 nV) mot base step =
 doIndNatStep tgt@(VNeutral VNat neu) mot base step =
   let
     indT  = indNatStepType mot
-    motT  = VPi VNat \_ -> VU
+    motT  = VPi "_" VNat \_ -> VU
     baseT = doApply mot VZero
   in
     VNeutral (doApply mot tgt)
@@ -167,95 +167,107 @@ doIndNatStep nVal mot base step = tyCheckError "doIndNatStep" [nVal, mot, base, 
 quoteNeutral :: LocalEnv -> Bool -> Expr -> Neutral -> Expr
 quoteNeutral = undefined
 
-{-
-readBackNormal :: Ctx -> Normal -> Expr
-readBackNormal ctx (Normal t v) = readBackTyped ctx t v
+
+readBackNormal :: LocalEnv -> TopEnv -> Normal -> Expr
+readBackNormal locEnv topEnv (Normal t v) = readBackTyped locEnv topEnv t v
 
 
-readBackTyped :: Ctx -> Ty -> Value -> Expr
-readBackTyped ctx VNat VZero = Zero
-readBackTyped ctx VNat (VAdd1 nV) = Add1 (readBackTyped ctx VNat nV)
-readBackTyped ctx (VPi domT depT) fun =
+readBackTyped :: LocalEnv -> TopEnv -> Ty -> Value -> Expr
+readBackTyped _ _ VNat VZero = Zero
+readBackTyped locEnv topEnv VNat (VAdd1 nV) = Add1 (readBackTyped locEnv topEnv VNat nV)
+readBackTyped locEnv topEnv (VPi n domT depT) fun =
   let
-    var    = freshen ctx (getClosureName depT)
+    var    = freshen locEnv (name n)
     varVal = undefined
   in
     
     Lam var
       (readBackTyped
-        (extendCtx ctx var domT)
-        (evalClosure depT varVal)
+        (extendEnv locEnv var domT)
+        topEnv
+        (depT varVal)
         (doApply fun varVal)
       )
-readBackTyped ctx (VSigma carT cdrT) pair =
+readBackTyped locEnv topEnv (VSigma n carT cdrT) pair =
   let
     carV = doCar pair
     cdrV = doCdr pair
-    depT = evalClosure cdrT carV
+    depT = cdrT carV
   in
-    Cons (readBackTyped ctx carT carV) (readBackTyped ctx depT cdrV)
-readBackTyped ctx VTrivial _ = Sole
-readBackTyped ctx VAbsurd (VNeutral VAbsurd neu) =
-  The Absurd (readBackNeutral ctx neu)
-readBackTyped ctx (VEqual _ _ _) VSame = Same
-readBackTyped ctx VAtom (VTick chars) = Tick chars
-readBackTyped ctx VU VNat = Nat
-readBackTyped ctx VU VTrivial = Trivial
-readBackTyped ctx VU VAbsurd  = Absurd
-readBackTyped ctx VU VAtom    = Atom
+    Cons (readBackTyped locEnv topEnv carT carV) (readBackTyped locEnv topEnv depT cdrV)
+readBackTyped locEnv topEnv VTrivial _ = Sole
+readBackTyped locEnv topEnv VAbsurd (VNeutral VAbsurd neu) =
+  The Absurd (readBackNeutral locEnv topEnv neu)
+readBackTyped locEnv topEnv (VEqual _ _ _) VSame = Same
+readBackTyped locEnv topEnv VAtom (VTick chars) = Tick chars
+readBackTyped locEnv topEnv VU VNat = Nat
+readBackTyped locEnv topEnv VU VTrivial = Trivial
+readBackTyped locEnv topEnv VU VAbsurd  = Absurd
+readBackTyped locEnv topEnv VU VAtom    = Atom
 -- This needs to change when universes are added
-readBackTyped ctx VU VU = U
-readBackTyped ctx VU (VEqual t from to) =
+readBackTyped locEnv topEnv VU VU = U
+readBackTyped locEnv topEnv VU (VEqual t from to) =
   Equal
-    (readBackTyped ctx VU t)
-    (readBackTyped ctx t from)
-    (readBackTyped ctx t to)
-readBackTyped ctx VU (VSigma carT cdrT) =
+    (readBackTyped locEnv topEnv VU t)
+    (readBackTyped locEnv topEnv t from)
+    (readBackTyped locEnv topEnv t to)
+readBackTyped locEnv topEnv VU (VSigma n carT cdrT) =
   let
-    var     = freshen ctx (getClosureName cdrT)
+    var     = freshen locEnv (name n)
     varVal  = VNeutral carT (NVar var)
-    cdrVal  = evalClosure cdrT varVal
-    cdrTFin = readBackTyped (extendCtx ctx var carT) VU cdrVal
-    carTFin = readBackTyped ctx VU carT
+    cdrVal  = cdrT varVal
+    cdrTFin = readBackTyped (extendEnv locEnv var carT) topEnv VU cdrVal
+    carTFin = readBackTyped locEnv topEnv VU carT
   in
     Sigma var carTFin cdrTFin
-readBackTyped ctx VU (VPi domT depT) =
+readBackTyped locEnv topEnv VU (VPi n domT depT) =
   let
-    var     = freshen ctx (getClosureName depT)
+    var     = freshen locEnv (name n)
     varVal  = VNeutral domT (NVar var)
-    depTVal = evalClosure depT varVal
-    depTFin = readBackTyped (extendCtx ctx var domT) VU depTVal
-    domTFin = readBackTyped ctx VU domT
+    depTVal = depT varVal
+    depTFin = readBackTyped (extendEnv locEnv var domT) topEnv VU depTVal
+    domTFin = readBackTyped locEnv topEnv VU domT
   in
     Pi var domTFin depTFin
-readBackTyped ctx _ (VNeutral _ neu) = readBackNeutral ctx neu
-readBackTyped ctx ty val = readBackError "readBackTyped" ty val
-
-
-readBackNeutral :: Ctx -> Neutral -> Expr
-readBackNeutral ctx (NVar v) = Var v
-readBackNeutral ctx (NApp f a) = App (readBackNeutral ctx f) (readBackNormal ctx a)
-readBackNeutral ctx (NCar neu) = Car (readBackNeutral ctx neu)
-readBackNeutral ctx (NCdr neu) = Cdr (readBackNeutral ctx neu)
-readBackNeutral ctx (NIndNat n mot base step) =
-  IndNat
-    (readBackNeutral ctx n)
-    (readBackNormal ctx mot)
-    (readBackNormal ctx base)
-    (readBackNormal ctx step)
-readBackNeutral ctx (NReplace eq mot base) =
-  Replace
-    (readBackNeutral ctx eq)
-    (readBackNormal ctx mot)
-    (readBackNormal ctx base)
-readBackNeutral ctx (NIndAbsurd absurd ty) =
-  IndAbsurd
-    (The Absurd (readBackNeutral ctx absurd))
-    (readBackNormal ctx ty)
+readBackTyped locEnv topEnv _ (VNeutral _ neu) = readBackNeutral locEnv topEnv neu
+readBackTyped locEnv topEnv ty val = readBackError "readBackTyped" ty val
 
 
 
+readBackNeutral :: LocalEnv -> TopEnv -> Neutral -> Expr
+readBackNeutral locEnv topEnv =
+  let
+    localReadNeutral = readBackNeutral locEnv topEnv
+    localReadNormal = readBackNormal  locEnv topEnv
+  in \case
+    
+  (NVar v) -> Var v
+  (NApp f a) -> App (localReadNeutral f) (localReadNormal a)
+  (NCar neu) -> Car (localReadNeutral neu)
+  (NCdr neu) -> Cdr (localReadNeutral neu)
+  (NIndNat n mot base step) ->
+    IndNat
+      (localReadNeutral n)
+      (localReadNormal mot)
+      (localReadNormal base)
+      (localReadNormal step)
+  (NReplace eq mot base) ->
+    Replace
+      (localReadNeutral eq)
+      (localReadNormal mot)
+      (localReadNormal base)
+  (NIndAbsurd absurd ty) ->
+    IndAbsurd
+      (The Absurd (readBackNeutral locEnv topEnv absurd))
+      (readBackNormal locEnv topEnv ty)
 
+
+readBackError :: String -> Value -> Value -> Expr
+readBackError funName ty val = error $
+  unlines $
+    [ "Internal error (" <> funName <> "): typecheckerError"
+    ]
+{-
 tyCheckError :: String -> [Value] -> Value
 tyCheckError funName vals = error $
   unlines $
@@ -270,6 +282,4 @@ readBackError funName ty val = error $
     , "value: " <> show val
     , "wrong type: " <> show ty
     ]
-
-
 -}
