@@ -13,7 +13,7 @@ type TopEnv   = [(Name, Normal)]
 -- kovacs uses [(Name, Maybe Value)] as often we know
 -- the type of the variable on a lambda anyway so we duplicate this information
 type LocalEnv = [(Name, Value)]
-type Ctx = (LocalEnv, TopEnv)
+type Ctx = (TopEnv, LocalEnv)
 
 extendEnv :: LocalEnv -> Name -> Value -> LocalEnv
 extendEnv env v val = ((v, val) : env)
