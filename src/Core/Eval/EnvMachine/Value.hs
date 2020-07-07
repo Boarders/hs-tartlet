@@ -25,7 +25,7 @@ data Closure = Closure
   deriving (Eq, Ord, Show)
 
 getClosureName :: Closure -> String
-getClosureName = name . closureName
+getClosureName = closureName
 
 
 type Ty = Value

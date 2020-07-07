@@ -7,7 +7,7 @@ import Core.Eval.EnvMachine.Value
 
 
 eval :: Env -> Expr -> Value
-eval env (Loc v) = evalVar env v
+eval env (Loc v) = error "eval: to do" -- evalVar env v
 eval env (Top v) = evalVar env v
 eval env (Pi a dom dep) = VPi (eval env dom) (Closure env a dep)
 eval env (Lam v body) = VLam (Closure env v body)
@@ -89,8 +89,8 @@ indNatStepType mot =
   eval (Env [("mot", mot)])
     (Pi "n-1" Nat
       (Pi "ind"
-         (App (Var "mot") (Var "n-1"))
-         (App (Var "mot") (Add1 (Var "n-1"))
+         (App (Var 2) (Var 1))
+         (App (Var 2) (Add1 (Var 1))
          )
       )
     )
@@ -179,7 +179,7 @@ readBackTyped ctx ty val = readBackError "readBackTyped" ty val
 
 
 readBackNeutral :: Ctx -> Neutral -> Expr
-readBackNeutral ctx (NVar v) = Var v
+readBackNeutral ctx (NVar v) = error "to do" -- Var v
 readBackNeutral ctx (NApp f a) = App (readBackNeutral ctx f) (readBackNormal ctx a)
 readBackNeutral ctx (NCar neu) = Car (readBackNeutral ctx neu)
 readBackNeutral ctx (NCdr neu) = Cdr (readBackNeutral ctx neu)

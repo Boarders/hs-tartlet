@@ -65,16 +65,14 @@ lookupType (ctx :|> (y, conEntry)) x
       IsA ty   -> pure ty
   | otherwise = lookupType ctx x
 
-
+{-
 findMaxId :: Ctx -> String -> Maybe Int
 findMaxId ctx str = go Nothing ctx
   where
     go acc Nil = acc
-    go acc (xs :|> (Name{..}, _)) | str == name = go (liftA2 max acc (Just iD)) xs
-                           | otherwise = go acc xs
-             
+    go acc (xs :|> (name, _)) | str == name = go (liftA2 max acc (Just iD)) xs
+                              | otherwise = go acc xs
+ -}            
 freshen :: Ctx -> String -> Name
-freshen ctx str =
-  case findMaxId ctx str  of
-    Nothing -> fromString str
-    Just k  -> Name (k + 1) str
+freshen ctx str = error "freshen: to do"
+
