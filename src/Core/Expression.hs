@@ -7,6 +7,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DerivingStrategies   #-}
 
 module Core.Expression where
 
@@ -19,18 +21,7 @@ import Data.Map (Map)
 import Data.String (IsString(..))
 
 
-data Name = Name
-  { iD :: !Int
-  , name :: String
-  }
-  deriving (Eq, Ord)
-
-instance Show Name where
-  show (Name 0 str) = str
-  show (Name n str) = str <> (show n)
-
-instance IsString Name where
-  fromString str = Name 0 str
+type Name = String
 
 newVar :: Name
 newVar = "x"
@@ -38,8 +29,8 @@ newVar = "x"
 type Chars = String
 
 data Expr =
-    Loc Name                              -- local variable
-  | Top Name                              -- top level variable
+    Loc Int                               -- local variable
+  | Top String                            -- top level name
   | Pi Name (Expr) (Expr)                 -- (a : A) -> B
   | Lam Name (Expr)                       -- fun x => expr
   | App (Expr) (Expr)                     -- rator rand
@@ -68,11 +59,12 @@ data Expr =
   deriving (Eq, Ord, Show)
 
 
-pattern Var :: Name -> Expr
+pattern Var :: Int -> Expr
 pattern Var n <- Loc n
   where
     Var v = Var v
 
+{-
 alphaEquiv :: Expr -> Expr -> Bool
 alphaEquiv e1 e2 = alphaHelper 0 (Map.empty) e1 (Map.empty) e2
   where
@@ -135,3 +127,7 @@ alphaEquiv e1 e2 = alphaHelper 0 (Map.empty) e1 (Map.empty) e2
 -- if both values are of type absurd then skip alpha equivalence test
   alphaHelper _ _ (The Absurd _) _ (The Absurd _) = True
   alphaHelper _ _ term1 _ term2 = term1 == term2
+
+
+
+-}
