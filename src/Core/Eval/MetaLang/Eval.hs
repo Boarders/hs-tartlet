@@ -7,18 +7,22 @@ module Core.Eval.MetaLang.Eval where
 import Core.Expression
 import Core.Eval.MetaLang.Value
 import Control.Monad (join)
+import Data.List (elemIndex)
+
+-- In our syntax we use de-bruijn indices but in our evaluator we use de-bruijn levels,
+-- this means the eval function uses indices but the readback uses levels.
 
 eval :: TopEnv -> LocalEnv -> Expr -> Value
 eval topEnv locEnv =
   let
     localEval = eval topEnv locEnv
-    binderEval var body val = eval topEnv (extendEnv locEnv var val) body
+    binderEval var body val = eval topEnv (extendEnv locEnv val) body
   in
   \case
     (Loc v) -> evalLocVar locEnv v
     (Top v) -> evalTopVar topEnv v
     (Pi n dom dep) -> VPi n (localEval dom) \val -> binderEval n dep val
-    (Lam n body) -> VLam n \val -> eval topEnv (extendEnv locEnv n val) body
+    (Lam n body) -> VLam n \val -> eval topEnv (extendEnv locEnv val) body
     (App fn arg) -> doApply (localEval fn) (localEval arg)
     (Sigma a carT cdrT) ->
       VSigma a (localEval carT) \val -> binderEval a cdrT val
@@ -45,8 +49,8 @@ eval topEnv locEnv =
     (The _ e) -> eval topEnv locEnv e
 
 
-evalLocVar :: LocalEnv -> Name -> Value
-evalLocVar locEnv name = maybe (lookupLocError "evalLocVar" name) id  $ lookup name locEnv
+evalLocVar :: LocalEnv -> Int -> Value
+evalLocVar locEnv depth = locEnv !! depth
 
 
 evalTopVar :: TopEnv -> Name -> Value
@@ -66,7 +70,7 @@ lookupTopError funName name = error $
     , show name
     ]
 
-lookupLocError :: String -> Name -> Value
+lookupLocError :: String -> Int -> Value
 lookupLocError funName name = error $
   unlines
     [ "Internal error (" <> funName <> "): lookupError"
@@ -134,11 +138,11 @@ doReplace eq mot base = tyCheckError "doReplace" [eq, mot, base]
 indNatStepType :: Value -> Value
 indNatStepType mot =
 -- could write this out explicitly?
-  eval [] [("mot", mot)]
+  eval [] [mot]
     (Pi "n-1" Nat
       (Pi "ind"
-         (App (Var "mot") (Var "n-1"))
-         (App (Var "mot") (Add1 (Var "n-1"))
+         (App (Var 2) (Var 1))
+         (App (Var 2) (Add1 (Var 1))
          )
       )
     )
@@ -166,79 +170,80 @@ quoteNeutral :: LocalEnv -> Bool -> Expr -> Neutral -> Expr
 quoteNeutral = undefined
 
 
-readBackNormal :: LocalEnv -> TopEnv -> Normal -> Expr
-readBackNormal locEnv topEnv (Normal t v) = readBackTyped locEnv topEnv t v
+readBackNormal :: LocalEnv -> Int -> Normal -> Expr
+readBackNormal locEnv depth (Normal t v) = readBackTyped locEnv depth t v
 
 
-readBackTyped :: LocalEnv -> TopEnv -> Ty -> Value -> Expr
+-- Here the depth refers to a variable which is not under any binder, this starts at 1 and increases as we pass under any binder. This gives us a source of fresh variables.
+readBackTyped :: LocalEnv -> Int -> Ty -> Value -> Expr
 readBackTyped _ _ VNat VZero = Zero
-readBackTyped locEnv topEnv VNat (VAdd1 nV) = Add1 (readBackTyped locEnv topEnv VNat nV)
-readBackTyped locEnv topEnv (VPi n domT depT) fun =
+readBackTyped locEnv depth VNat (VAdd1 nV) = Add1 (readBackTyped locEnv depth VNat nV)
+readBackTyped locEnv depth (VPi n domT depT) fun@(VLam name _) =
   let
-    var    = freshen locEnv (name n)
-    varVal = VNeutral domT (NVar var)
+    fresh  = depth + 1
+    varVal = VNeutral domT (NVar fresh)
   in
-    Lam var
+    Lam name
       (readBackTyped
-        (extendEnv locEnv var domT)
-        topEnv
+        locEnv
+        fresh
         (depT varVal)
         (doApply fun varVal)
       )
-readBackTyped locEnv topEnv (VSigma n carT cdrT) pair =
+readBackTyped locEnv depth (VSigma n carT cdrT) pair =
   let
     carV = doCar pair
     cdrV = doCdr pair
     depT = cdrT carV
   in
-    Cons (readBackTyped locEnv topEnv carT carV) (readBackTyped locEnv topEnv depT cdrV)
-readBackTyped locEnv topEnv VTrivial _ = Sole
-readBackTyped locEnv topEnv VAbsurd (VNeutral VAbsurd neu) =
-  The Absurd (readBackNeutral locEnv topEnv neu)
-readBackTyped locEnv topEnv (VEqual _ _ _) VSame = Same
-readBackTyped locEnv topEnv VAtom (VTick chars) = Tick chars
-readBackTyped locEnv topEnv VU VNat = Nat
-readBackTyped locEnv topEnv VU VTrivial = Trivial
-readBackTyped locEnv topEnv VU VAbsurd  = Absurd
-readBackTyped locEnv topEnv VU VAtom    = Atom
+    Cons (readBackTyped locEnv depth carT carV) (readBackTyped locEnv depth depT cdrV)
+readBackTyped _ depth VTrivial _ = Sole
+readBackTyped locEnv depth VAbsurd (VNeutral VAbsurd neu) =
+  The Absurd (readBackNeutral locEnv depth neu)
+readBackTyped locEnv depth (VEqual _ _ _) VSame = Same
+readBackTyped locEnv depth VAtom (VTick chars) = Tick chars
+readBackTyped locEnv depth VU VNat = Nat
+readBackTyped locEnv depth VU VTrivial = Trivial
+readBackTyped locEnv depth VU VAbsurd  = Absurd
+readBackTyped locEnv depth VU VAtom    = Atom
 -- This needs to change when universes are added
-readBackTyped locEnv topEnv VU VU = U
-readBackTyped locEnv topEnv VU (VEqual t from to) =
+readBackTyped locEnv depth VU VU = U
+readBackTyped locEnv depth VU (VEqual t from to) =
   Equal
-    (readBackTyped locEnv topEnv VU t)
-    (readBackTyped locEnv topEnv t from)
-    (readBackTyped locEnv topEnv t to)
-readBackTyped locEnv topEnv VU (VSigma n carT cdrT) =
+    (readBackTyped locEnv depth VU t)
+    (readBackTyped locEnv depth t from)
+    (readBackTyped locEnv depth t to)
+readBackTyped locEnv depth VU (VSigma n carT cdrT) =
   let
-    var     = freshen locEnv (name n)
-    varVal  = VNeutral carT (NVar var)
+    fresh   = depth + 1
+    varVal  = VNeutral carT (NVar fresh)
     cdrVal  = cdrT varVal
-    cdrTFin = readBackTyped (extendEnv locEnv var carT) topEnv VU cdrVal
-    carTFin = readBackTyped locEnv topEnv VU carT
+    cdrTFin = readBackTyped locEnv fresh VU cdrVal
+    carTFin = readBackTyped locEnv depth VU carT
   in
-    Sigma var carTFin cdrTFin
-readBackTyped locEnv topEnv VU (VPi n domT depT) =
+    Sigma n carTFin cdrTFin
+readBackTyped locEnv depth VU (VPi n domT depT) =
   let
-    var     = freshen locEnv (name n)
-    varVal  = VNeutral domT (NVar var)
+    fresh     = depth + 1
+    varVal  = VNeutral domT (NVar fresh)
     depTVal = depT varVal
-    depTFin = readBackTyped (extendEnv locEnv var domT) topEnv VU depTVal
-    domTFin = readBackTyped locEnv topEnv VU domT
+    depTFin = readBackTyped locEnv fresh VU depTVal
+    domTFin = readBackTyped locEnv depth VU domT
   in
-    Pi var domTFin depTFin
-readBackTyped locEnv topEnv _ (VNeutral _ neu) = readBackNeutral locEnv topEnv neu
-readBackTyped locEnv topEnv ty val = readBackError "readBackTyped" ty val
+    Pi n domTFin depTFin
+readBackTyped locEnv depth _ (VNeutral _ neu) = readBackNeutral locEnv depth neu
+readBackTyped _ _ ty val = readBackError "readBackTyped" ty val
 
 
 
-readBackNeutral :: LocalEnv -> TopEnv -> Neutral -> Expr
-readBackNeutral locEnv topEnv =
+readBackNeutral :: LocalEnv -> Int -> Neutral -> Expr
+readBackNeutral locEnv depth =
   let
-    localReadNeutral = readBackNeutral locEnv topEnv
-    localReadNormal = readBackNormal  locEnv topEnv
+    localReadNeutral = readBackNeutral locEnv depth
+    localReadNormal  = readBackNormal  locEnv depth
   in \case
-
-  (NVar v) -> Var v
+               -- Convert debruijn level to debruijn index
+  (NVar i) -> Var (depth - i - 1)
   (NApp f a) -> App (localReadNeutral f) (localReadNormal a)
   (NCar neu) -> Car (localReadNeutral neu)
   (NCdr neu) -> Cdr (localReadNeutral neu)
@@ -255,8 +260,8 @@ readBackNeutral locEnv topEnv =
       (localReadNormal base)
   (NIndAbsurd absurd ty) ->
     IndAbsurd
-      (The Absurd (readBackNeutral locEnv topEnv absurd))
-      (readBackNormal locEnv topEnv ty)
+      (The Absurd (readBackNeutral locEnv depth absurd))
+      (readBackNormal locEnv depth ty)
 
 
 readBackError :: String -> Value -> Value -> Expr

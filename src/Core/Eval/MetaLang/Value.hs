@@ -10,28 +10,12 @@ import Control.Applicative
 import Data.String
 
 type TopEnv   = [(Name, Normal)]
--- kovacs uses [(Name, Maybe Value)] as often we know
--- the type of the variable on a lambda anyway so we duplicate this information
-type LocalEnv = [(Name, Value)]
+
+type LocalEnv = [Value]
 type Ctx = (TopEnv, LocalEnv)
 
-extendEnv :: LocalEnv -> Name -> Value -> LocalEnv
-extendEnv env v val = ((v, val) : env)
-
-
-findMaxId :: LocalEnv -> String -> Maybe Int
-findMaxId ctx str = go Nothing ctx
-  where
-    go acc [] = acc
-    go acc ((Name{..}, _) : xs) | str == name = go (liftA2 max acc (Just iD)) xs
-                                | otherwise = go acc xs
-
-freshen :: LocalEnv -> String -> Name
-freshen ctx str =
-  case findMaxId ctx str  of
-    Nothing -> fromString str
-    Just k  -> Name (k + 1) str
-
+extendEnv :: LocalEnv -> Value -> LocalEnv
+extendEnv env val = (val : env)
 
 
 type Ty = Value
@@ -58,7 +42,7 @@ data Value =
 
 data Neutral =
     NTop Name
-  | NVar Name
+  | NVar Int
   | NApp Neutral Normal
   | NCar Neutral
   | NCdr Neutral
@@ -68,6 +52,6 @@ data Neutral =
 
 
 data Normal = Normal
-  { normalTy   :: Ty
+  { normalTy  :: Ty
   , normalVal :: Value
   }

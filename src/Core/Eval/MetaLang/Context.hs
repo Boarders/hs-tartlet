@@ -66,6 +66,8 @@ lookupType (ctx :|> (y, conEntry)) x
   | otherwise = lookupType ctx x
 
 
+{-
+
 findMaxId :: Ctx -> String -> Maybe Int
 findMaxId ctx str = go Nothing ctx
   where
@@ -78,3 +80,4 @@ freshen ctx str =
   case findMaxId ctx str  of
     Nothing -> fromString str
     Just k  -> Name (k + 1) str
+-}
