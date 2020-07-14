@@ -34,23 +34,23 @@ data Expr =
   | Pi Name (Expr) (Expr)                 -- (a : A) -> B
   | Lam Name (Expr)                       -- fun x => expr
   | App (Expr) (Expr)                     -- rator rand
-  | Sigma Name (Expr) (Expr)              -- (a : A) x B
+  | Sigma Name (Expr) (Expr)              -- ((a : A) * B)
   | Cons (Expr) (Expr)                    -- cons fst snd
   | Car (Expr)                            -- car p
   | Cdr (Expr)                            -- cdr p
-  | Nat                                   -- nat
+  | Nat                                   -- Nat
   | Zero                                  -- zero
   | Add1 (Expr)                           -- add1
   | IndNat (Expr) (Expr) (Expr) (Expr)    -- ind-Nat tgt mot base step
-  | Equal (Expr) (Expr) (Expr)            -- eq A from to
-  | Same                                  -- refl
+  | Equal (Expr) (Expr) (Expr)            -- Eq A from to
+  | Same                                  -- Refl
   | Replace (Expr) (Expr) (Expr)          -- trans
                                           --   (eq : eq P from to)
                                           --   (mot : P -> Type)
                                           --   base : mot from
   | Trivial                               -- Unit
-  | Sole                                  -- t : Unit
-  | Absurd                                -- False
+  | Sole                                  -- tt : Unit
+  | Absurd                                -- false
   | IndAbsurd (Expr) (Expr)               -- ind-Absurd (tgt : False) (ty : Type)
   | Atom                                  -- Atom
   | Tick Chars                            -- 'a
