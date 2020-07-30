@@ -46,6 +46,7 @@ Library Core
 
   build-depends:
       base
+    , array
     , containers
         ^>= 0.6
     , parsec
