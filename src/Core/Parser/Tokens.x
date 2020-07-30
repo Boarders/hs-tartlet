@@ -8,15 +8,15 @@ $digit = 0-9      -- digits
 $alpha = [a-zA-Z]		-- alphabetic characters
 
 tokens :-
-
   $white+    ;
   "--".*     ;
   \(          { \s -> LeftBracket  }
   \)          { \s -> RightBracket }
   :           { \s -> Ann }
   \->         { \s -> Arr }
+  fun         { \s -> Fun }
   =>          { \s -> MapsTo }
-  *           { \s -> Star }
+  \*          { \s -> Star }
   cons        { \s -> Cons }
   cdr         { \s -> Cdr  }
   \Nat | ℕ    { \s -> Nat  }
@@ -27,14 +27,12 @@ tokens :-
   refl         { \s -> Refl }
   Unit         { \s -> Unit }
   \(\) | tt    { \s -> TT   }
-  False        { \s -> False }
-  
-  
-
-
-  $digit+				{ \s -> Int (read s) }
-  [\=\+\-\*\/\(\)]			{ \s -> Sym (head s) }
+  Absurd        { \s -> Absurd }
+  ind\-Absurd  { \s -> IndAbsurd }
+  atom         { \s -> Atom }
+  \' [$alpha $digit]* { \s -> Tick s}
   $alpha [$alpha $digit \_ \']*		{ \s -> Var s }
+
 
 {
 -- Each action has type :: String -> Token
@@ -44,10 +42,11 @@ type Chars = String
 -- The token type:
 data Token =
   LeftBracket   |
-  RightBracket  |
+  RightBracket  |  
   Var Chars     |
   Ann           |
   Arr           |
+  Fun           |
   MapsTo        |
   Star          |
   Cons          |
@@ -61,13 +60,13 @@ data Token =
   Trans         |
   Unit          |
   TT            |
-  False         |
+  Absurd        |
   IndAbsurd     |
   Atom          |
   Tick String   |
-  Sym Char      |
   Univ
   deriving (Eq,Show)
 
-token = alexScanTokens
+scanToken :: String -> [Token]
+scanToken = alexScanTokens
 }
