@@ -1,5 +1,5 @@
 {
-module Token where
+module Core.Parser.Token where
 }
 
 %wrapper "basic"
