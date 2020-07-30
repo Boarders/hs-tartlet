@@ -50,7 +50,7 @@ data Expr =
                                           --   base : mot from
   | Trivial                               -- Unit
   | Sole                                  -- tt : Unit
-  | Absurd                                -- false
+  | Absurd                                -- Absurd
   | IndAbsurd (Expr) (Expr)               -- ind-Absurd (tgt : False) (ty : Type)
   | Atom                                  -- Atom
   | Tick Chars                            -- 'a
