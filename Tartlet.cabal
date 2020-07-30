@@ -71,7 +71,7 @@ Library Core
       Core.Eval.MetaLang.Eval
 --      Core.Parser.Type
 --      Core.Parser.Term
---      Core.Parser.Lex
+      Core.Parser.Token
       Core.TypeChecker
       Core.TypeChecker.Judgement
       -- Core.PrettyPrint
