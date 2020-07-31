@@ -47,6 +47,7 @@ Library Core
   build-depends:
       base
     , array
+    , bytestring
     , containers
         ^>= 0.6
     , parsec
@@ -73,6 +74,7 @@ Library Core
 --      Core.Parser.Type
 --      Core.Parser.Term
       Core.Parser.Token
+      Core.Parser.Helper
       Core.TypeChecker
       Core.TypeChecker.Judgement
       -- Core.PrettyPrint
