@@ -14,10 +14,10 @@ import Core.Expression
 %lexer { lexer  } { Token _ EOF }
 
 %token
-    '(' { Token _ LeftBracket  }
-    ')' { Token _ RightBracket }
-    var { Token _ Var Chars    }
-    ann { Token _ Ann          }
+    '('       { Token _ LeftBracket  }
+    ')'       { Token _ RightBracket }
+    var       { Token _ Var $$       }
+    ann       { Token _ Ann          }
     arr       { Token _ Arr          }
     fun       { Token _ Fun          }
     =>        { Token _ MapsTo       }
@@ -36,8 +36,23 @@ import Core.Expression
     absurd    { Token _ Absurd       }
     indabsurd { Token _ IndAbsurd    }
     atom      { Token _ Atom         }
-    tick      { Token _ Tick String  }
+    tick      { Token _ Tick $$      }
     univ      { Token _ Univ         }
 %%
 
-Exp :: {E
+
+Type :: { ParsedExpr }
+      : nat                     { NatP }
+      | univ                    { UP }
+      | var ann Type prod Type  { SigmaP $1 $3 }
+      | var ann Type arr Type   { PiP $1 $3 $5 }
+      | var                     { VarP $1 }
+      | eq Type Expr Expr       { EqualP $2 $3 $4 }
+  
+Expr :: {Expr}
+      : tt   { Sole }
+      | zero { Zero }
+      | add1 Expr { Add1 $2 }
+      | cons Expr { Cons $2 }
+      | cdr Expr  { Cdr  $2 }
+      | 
