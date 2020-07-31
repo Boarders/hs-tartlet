@@ -1,4 +1,5 @@
 {
+{-# OPTIONS_GHC -fno-warn-unused-matches #-}
 module Core.Parser.Token where
 }
 
