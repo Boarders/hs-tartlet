@@ -4,9 +4,6 @@ module Core.Parser.Helper
   , returnP
   , happyError
   , Parser
-  , Token(..)
-  , tokenToPosN
-  , TokenClass(..)
   , AlexPosn
   , AlexState(..)
   , lexer
