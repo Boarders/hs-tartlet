@@ -32,22 +32,22 @@ data ParsedExpr =
     VarP String                                                    -- local variable
   | TopP String                                                    -- top level name
   | PiP Name ParsedExpr ParsedExpr                                 -- (a : A) -> B
-  | LamP Name (ParsedExpr)                                         -- fun x => expr
-  | AppP (ParsedExpr) (ParsedExpr)                                 -- rator rand
-  | SigmaP Name (ParsedExpr) (ParsedExpr)                          -- ((a : A) * B)
-  | ConsP (ParsedExpr) (ParsedExpr)                                -- cons fst snd
-  | CarP (ParsedExpr)                                              -- car p
-  | CdrP (ParsedExpr)                                              -- cdr p
+  | LamP Name ParsedExpr                                           -- fun x => expr
+  | AppP ParsedExpr ParsedExpr                                     -- rator rand
+  | SigmaP Name ParsedExpr ParsedExpr                              -- ((a : A) * B)
+  | ConsP ParsedExpr ParsedExpr                                    -- cons fst snd
+  | CarP ParsedExpr                                                -- car p
+  | CdrP ParsedExpr                                                -- cdr p
   | NatP                                                           -- Nat
   | ZeroP                                                          -- zero
-  | Add1P (ParsedExpr)                                             -- add1
-  | IndNatP (ParsedExpr) (ParsedExpr) (ParsedExpr) (ParsedExpr)    -- ind-Nat tgt mot base step
-  | EqualP (ParsedExpr) (ParsedExpr) (ParsedExpr)                  -- Eq A from to
+  | Add1P ParsedExpr                                               -- add1
+  | IndNatP ParsedExpr ParsedExpr ParsedExpr ParsedExpr            -- ind-Nat tgt mot base step
+  | EqualP ParsedExpr ParsedExpr ParsedExpr                        -- Eq A from to
   | SameP                                                          -- Refl
-  | ReplaceP (ParsedExpr) (ParsedExpr) (ParsedExpr)                -- trans
-                                                                   --   (eq : eq P from to)
-                                                                   --   (mot : P -> Type)
-                                                                   --   base : mot from
+  | ReplaceP ParsedExpr ParsedExpr ParsedExpr                      -- trans
+                                                                     --   (eq : eq P from to)
+                                                                     --   (mot : P -> Type)
+                                                                     --   base : mot from
   | TrivialP                                                       -- Unit
   | SoleP                                                          -- tt : Unit
   | AbsurdP                                                        -- Absurd
@@ -61,20 +61,20 @@ data ParsedExpr =
 data Expr =
     Loc Int                               -- local variable
   | Top String                            -- top level name
-  | Pi Name (Expr) (Expr)                 -- (a : A) -> B
-  | Lam Name (Expr)                       -- fun x => expr
-  | App (Expr) (Expr)                     -- rator rand
-  | Sigma Name (Expr) (Expr)              -- ((a : A) * B)
-  | Cons (Expr) (Expr)                    -- cons fst snd
-  | Car (Expr)                            -- car p
-  | Cdr (Expr)                            -- cdr p
+  | Pi Name Expr Expr                     -- (a : A) -> B
+  | Lam Name Expr                         -- fun x => expr
+  | App Expr Expr                         -- rator rand
+  | Sigma Name Expr Expr                  -- ((a : A) * B)
+  | Cons Expr Expr                        -- cons fst snd
+  | Car Expr                              -- car p
+  | Cdr Expr                              -- cdr p
   | Nat                                   -- Nat
   | Zero                                  -- zero
-  | Add1 (Expr)                           -- add1
-  | IndNat (Expr) (Expr) (Expr) (Expr)    -- ind-Nat tgt mot base step
-  | Equal (Expr) (Expr) (Expr)            -- Eq A from to
+  | Add1 Expr                             -- add1
+  | IndNat Expr Expr Expr Expr            -- ind-Nat tgt mot base step
+  | Equal Expr Expr Expr                  -- Eq A from to
   | Same                                  -- Refl
-  | Replace (Expr) (Expr) (Expr)          -- trans
+  | Replace Expr Expr Expr                -- trans
                                           --   (eq : eq P from to)
                                           --   (mot : P -> Type)
                                           --   base : mot from
@@ -85,7 +85,7 @@ data Expr =
   | Atom                                  -- Atom
   | Tick Chars                            -- 'a
   | U                                     -- Type
-  | The (Expr) (Expr)                     -- (exp : ty)
+  | The Expr Expr                         -- (exp : ty)
   deriving (Eq, Ord, Show)
 
 

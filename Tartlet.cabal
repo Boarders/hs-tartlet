@@ -71,8 +71,7 @@ Library Core
       Core.Eval.MetaLang.Context
       Core.Eval.MetaLang.Value
       Core.Eval.MetaLang.Eval
---      Core.Parser.Type
---      Core.Parser.Term
+      Core.Parser.Parse
       Core.Parser.Token
       Core.Parser.Helper
       Core.TypeChecker

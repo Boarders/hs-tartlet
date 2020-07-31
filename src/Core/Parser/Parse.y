@@ -48,11 +48,10 @@ Type :: { ParsedExpr }
       | var ann Type arr Type   { PiP $1 $3 $5 }
       | var                     { VarP $1 }
       | eq Type Expr Expr       { EqualP $2 $3 $4 }
-  
+
 Expr :: {Expr}
       : tt   { Sole }
       | zero { Zero }
       | add1 Expr { Add1 $2 }
       | cons Expr { Cons $2 }
       | cdr Expr  { Cdr  $2 }
-      | 
