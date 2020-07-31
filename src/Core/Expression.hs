@@ -28,6 +28,36 @@ newVar = "x"
 
 type Chars = String
 
+data ParsedExpr =
+    VarP String                                                    -- local variable
+  | TopP String                                                    -- top level name
+  | PiP Name ParsedExpr ParsedExpr                                 -- (a : A) -> B
+  | LamP Name (ParsedExpr)                                         -- fun x => expr
+  | AppP (ParsedExpr) (ParsedExpr)                                 -- rator rand
+  | SigmaP Name (ParsedExpr) (ParsedExpr)                          -- ((a : A) * B)
+  | ConsP (ParsedExpr) (ParsedExpr)                                -- cons fst snd
+  | CarP (ParsedExpr)                                              -- car p
+  | CdrP (ParsedExpr)                                              -- cdr p
+  | NatP                                                           -- Nat
+  | ZeroP                                                          -- zero
+  | Add1P (ParsedExpr)                                             -- add1
+  | IndNatP (ParsedExpr) (ParsedExpr) (ParsedExpr) (ParsedExpr)    -- ind-Nat tgt mot base step
+  | EqualP (ParsedExpr) (ParsedExpr) (ParsedExpr)                  -- Eq A from to
+  | SameP                                                          -- Refl
+  | ReplaceP (ParsedExpr) (ParsedExpr) (ParsedExpr)                -- trans
+                                                                   --   (eq : eq P from to)
+                                                                   --   (mot : P -> Type)
+                                                                   --   base : mot from
+  | TrivialP                                                       -- Unit
+  | SoleP                                                          -- tt : Unit
+  | AbsurdP                                                        -- Absurd
+  | IndAbsurdP ParsedExpr ParsedExpr                               -- ind-Absurd (tgt : False) (ty : Type)
+  | AtomP                                                          -- Atom
+  | TickP Chars                                                    -- 'a
+  | UP                                                             -- Type
+  | TheP ParsedExpr
+  deriving (Eq, Ord, Show)
+
 data Expr =
     Loc Int                               -- local variable
   | Top String                            -- top level name
