@@ -1,10 +1,13 @@
 cabal:=cabal new-
 
-build: lexer
+build: parser
 	${cabal}build
 
 lexer: src/Core/Parser/Token.x
 	alex src/Core/Parser/Token.x
+
+parser: src/Core/Parser/Parse.y lexer
+	happy src/Core/Parser/Parse.y
 
 repl-core:
 	${cabal}repl core
