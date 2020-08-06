@@ -22,6 +22,7 @@ tokens :-
   =>          { tok MapsTo }
   \*          { tok Star }
   cons        { tok Cons }
+  car         { tok Car  }
   cdr         { tok Cdr  }
   \Nat | ℕ    { tok Nat  }
   0 | zero    { tok Zero }
@@ -68,6 +69,7 @@ data TokenType =
   MapsTo        |
   Star          |
   Cons          |
+  Car           |
   Cdr           |
   Nat           |
   Zero          |
