@@ -26,6 +26,9 @@ type Name = String
 newVar :: Name
 newVar = "x"
 
+dummyVar :: Name
+dummyVar ="_"
+
 type Chars = String
 
 data ParsedExpr =
@@ -48,14 +51,14 @@ data ParsedExpr =
                                                                      --   (eq : eq P from to)
                                                                      --   (mot : P -> Type)
                                                                      --   base : mot from
-  | TrivialP                                                       -- Unit
+  | UnitP                                                          -- Unit
   | SoleP                                                          -- tt : Unit
   | AbsurdP                                                        -- Absurd
   | IndAbsurdP ParsedExpr ParsedExpr                               -- ind-Absurd (tgt : False) (ty : Type)
   | AtomP                                                          -- Atom
   | TickP Chars                                                    -- 'a
-  | UP                                                             -- Type
-  | TheP ParsedExpr
+  | UnivP                                                             -- Type
+  | TheP ParsedExpr ParsedExpr                                     -- (exp : ty)
   deriving (Eq, Ord, Show)
 
 data Expr =
