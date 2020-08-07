@@ -8,11 +8,13 @@ module Core.Parser.Helper
   , AlexState(..)
   , lexer
   , runAlex
+  , runParser
   )
   where
 
 ----------------------------------------------------------------------------
 import Core.Parser.Token
+import Data.ByteString.Lazy as ByteString
 ----------------------------------------------------------------------------
 
 -- For readablity - these are the interfaces Happy expects:
@@ -21,6 +23,9 @@ type Parser a = Alex a
 
 thenP :: Parser a -> (a -> Parser b) -> Parser b
 thenP = (>>=)
+
+runParser :: Parser a -> ByteString -> Either String a
+runParser p s = runAlex s p
 
 returnP :: a -> Parser a
 returnP = return
