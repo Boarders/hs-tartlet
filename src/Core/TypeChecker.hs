@@ -73,7 +73,7 @@ synth ctx@(topEnv, locEnv) =
        case t of
          (VSigma _ car _) -> pure car
          _                -> throwError TyCheckError
-         
+
 --        Γ |- p => (x : A) * B
 --   -------------------------------
 --        Γ |- cdr p  => B [car p/x]
@@ -82,7 +82,31 @@ synth ctx@(topEnv, locEnv) =
        case t of
          (VSigma n _ cdr) -> pure $ (cdr (doCar (eval topEnv locEnv p)))
          _                -> throwError TyCheckError
-     
-           
-       
-       
+--        Γ valid
+--   ----------------------
+--        Γ |- Nat => U
+     Nat -> do
+       pure VU
+--        Γ |- tgt => Nat
+--        Γ |- mot  <= (Nat -> U)
+--        Γ |- base <= mot zero
+--        Γ |- step <= (n : Nat) -> mot n -> mot (add1 n)
+--   -----------------------------------------------------
+--        Γ |- (indNat tgt mot base step) => (mot tgt)
+     IndNat tgt mot base step -> do
+       isNat (synth ctx tgt)
+       check ctx mot natMotTy
+       let motV = eval topEnv locEnv mot
+       let tgtV = eval topEnv locEnv tgt
+       check ctx base (doApply motV VZero)
+       check ctx step (indNatStepType motV)
+       pure (doApply motV tgtV)
+
+
+
+isNat :: MonadError TyCheckError m => m Ty -> m ()
+isNat m = do
+  ty <- m
+  case ty of
+    VNat -> pure ()
+    _    -> throwError TyCheckError
