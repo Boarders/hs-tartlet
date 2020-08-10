@@ -26,50 +26,6 @@ lookupTop ((x,ty) : env) v
 check :: MonadError TyCheckError m => Ctx -> Expr -> Ty -> m ()
 check = undefined
 
-conv :: MonadError TyCheckError m => Ctx -> (Ty, (Value, Value)) -> m ()
-conv ctx@(topEnv, locEnv) = \case
-  (VU, (VU, VU)) -> pure ()
-  (VU, ((VPi _ dom1 dep1), (VPi _ dom2 dep2))) ->
-    let
-      var = VNeutral dom1 (NVar 0)
-    in
-      do
-        conv ctx (VU, (dom1, dom2))
-        conv (topEnv, extendEnv locEnv dom1) (VU, ((dep1 var), (dep2 var)))
-  ((VPi _ a b), (VLam _ bod1, VLam _ bod2)) ->
-    let
-      var = VNeutral a (NVar 0)
-    in
-      conv (topEnv, extendEnv locEnv a) ((b var), ((bod1 var), (bod2 var)))
-  (VSigma _ tyCar tyCdr, (VPair car1 cdr1, VPair car2 cdr2)) ->
-    do
-      conv ctx (tyCar, (car1, car2))
-      let
-        newCtx = (topEnv, extendEnv locEnv car1)
-      conv newCtx (tyCdr car1, (cdr1, cdr2))
-  (VU, (VNat, VNat)) -> pure ()
-  (VNat, (VZero, VZero)) -> pure ()
-  (VNat, (VAdd1 n1, VAdd1 n2)) -> conv ctx (VNat, (n1, n2))
-  (VEqual _ _ _, (VSame, VSame)) -> pure ()
-  (VTrivial, (_,_)) -> pure ()
-  (VAbsurd, (_,_)) -> pure ()
-  (VAtom, (VTick chrs1, VTick chrs2)) | chrs1 == chrs2 -> pure ()
-  (ty, (VTop _ neu1 _ val1, VTop _ neu2 _ val2)) ->
-    do
-      neuConv ctx (ty, (neu1, neu2))
-      conv ctx (ty, (val1, val2))
-  (ty, (VNeutral _ neu1, VNeutral _ neu2)) ->
-    neuConv ctx (ty, (neu1, neu2))
-  
-
-
-
-
-neuConv :: MonadError TyCheckError m => Ctx -> (Ty, (Neutral, Neutral)) -> m ()
-neuConv = undefined
-
-
-  
 
 synth :: MonadError TyCheckError m => Ctx -> Expr -> m Ty
 synth ctx@(topEnv, locEnv) =
