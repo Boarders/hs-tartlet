@@ -39,10 +39,6 @@ data Value =
   | VTop Name Neutral ~Ty ~Value
   | VNeutral Ty Neutral
 
-natMotTy :: Value
-natMotTy = VPi dummyVar VNat (\_ -> VU)
-
-
 
 
 
