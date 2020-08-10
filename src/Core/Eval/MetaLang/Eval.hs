@@ -12,6 +12,17 @@ import Data.List (elemIndex)
 -- In our syntax we use de-bruijn indices but in our evaluator we use de-bruijn levels,
 -- this means the eval function uses indices but the readback uses levels.
 
+
+conv' :: Ty -> LocalEnv -> Value -> Value -> Bool
+conv' ty locEnv val1 val2 =
+  let
+    e1 = readBackTyped locEnv 0 val1 ty
+    e2 = readBackTyped locEnv 0 val2 ty
+  in
+    e1 == e2
+    
+    
+     
 eval :: TopEnv -> LocalEnv -> Expr -> Value
 eval topEnv locEnv =
   let
