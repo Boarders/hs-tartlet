@@ -101,7 +101,49 @@ synth ctx@(topEnv, locEnv) =
        check ctx base (doApply motV VZero)
        check ctx step (indNatStepType motV)
        pure (doApply motV tgtV)
+--        Γ |- A <= U
+--        Γ |- from <= A
+--        Γ |- to   <= A
+--   -----------------------------------------------------
+--        Γ |- (Eq A from to) => U
+     (Equal ty from to) -> do
+       check ctx ty VU
+       let tyV = eval topEnv locEnv ty
+       check ctx from tyV
+       check ctx to   tyV
+       pure VU
+--        Γ |- eq => (Eq A from to)
+--        Γ |- mot  <= (A -> U)
+--        Γ |- base <= mot from
+--   -----------------------------------------------------
+--        Γ |- (trans eq mot base) => mot to
+     (Replace eq mot base) -> do
+       (tyV, fromV, toV) <- isEq (synth ctx eq)
+       check ctx mot (eqMotTy tyV)
+       let motV = eval topEnv locEnv mot
+       check ctx base (doApply motV fromV)
+       pure (doApply motV toV)
+--        Γ valid
+--   -----------------------
+--        Γ |- Unit => U
+     Trivial -> do
+       pure VU
+--        Γ valid
+--   -----------------------
+--        Γ |- Absurd => U
+     Absurd -> do
+       pure VU
+--        Γ |- tgt => Absur
+--        Γ |- mot <= U
+--   -----------------------
+--        Γ |- (ind-Absurd tgt mot) => mot
+     IndAbsurd tgt mot -> do
+       pure undefined
+     
 
+     
+ 
+ 
 
 
 isNat :: MonadError TyCheckError m => m Ty -> m ()
@@ -110,3 +152,17 @@ isNat m = do
   case ty of
     VNat -> pure ()
     _    -> throwError TyCheckError
+
+isEq :: MonadError TyCheckError m => m Ty -> m (Ty, Value, Value)
+isEq m = do
+  tyV <- m
+  case tyV of
+    VEqual ty from to -> pure (ty, from, to)
+    _ -> throwError TyCheckError
+
+
+natMotTy :: Value
+natMotTy = VPi dummyVar VNat (\_ -> VU)
+
+eqMotTy :: Value -> Value
+eqMotTy tyV = VPi dummyVar tyV (\_ -> VU)
