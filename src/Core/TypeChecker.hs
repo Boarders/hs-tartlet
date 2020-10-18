@@ -23,11 +23,11 @@ lookupTop ((x,ty) : env) v
   | otherwise = lookupTop env v
 
 
-check :: MonadError TyCheckError m => Ctx -> Expr -> Ty -> m ()
+check :: MonadError TyCheckError m => Ctxt -> Expr -> Ty -> m ()
 check = undefined
 
 
-synth :: MonadError TyCheckError m => Ctx -> Expr -> m Ty
+synth :: MonadError TyCheckError m => Ctxt  -> Expr -> m Ty
 synth ctx@(topEnv, locEnv) =
   \case
 --      (v : A) ∈ Γ
