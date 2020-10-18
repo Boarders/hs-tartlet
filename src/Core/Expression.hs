@@ -29,8 +29,12 @@ newVar = "x"
 dummyVar :: Name
 dummyVar ="_"
 
+metaVar :: Name
+metaVar = "?meta"
+
 type Chars = String
 
+-- The named AST we get after parsing
 data ParsedExpr =
     VarP String                                                    -- local variable
   | TopP String                                                    -- top level name
@@ -57,10 +61,48 @@ data ParsedExpr =
   | IndAbsurdP ParsedExpr ParsedExpr                               -- ind-Absurd (tgt : False) (ty : Type)
   | AtomP                                                          -- Atom
   | TickP Chars                                                    -- 'a
-  | UnivP                                                             -- Type
+  | UnivP                                                          -- Type
   | TheP ParsedExpr ParsedExpr                                     -- (exp : ty)
+  | HoleP                                                          -- _     
   deriving (Eq, Ord, Show)
 
+
+-- The Raw AST that we get after renaming with debruijn indices and
+-- TO DO: renaming holes with fresh meta variables
+-- which we feed to elaboration
+data RawExpr =
+    LocR Int                                                 -- local variable
+  | TopR String                                              -- top level name
+  | PiR Name RawExpr RawExpr                                 -- (a : A) -> B
+  | LamR Name RawExpr                                        -- fun x => expr
+  | AppR RawExpr RawExpr                                     -- rator rand
+  | SigmaR Name RawExpr RawExpr                              -- ((a : A) * B)
+  | ConsR RawExpr RawExpr                                    -- cons fst snd
+  | CarR RawExpr                                             -- car p
+  | CdrR RawExpr                                             -- cdr p
+  | NatR                                                     -- Nat
+  | ZeroR                                                    -- zero
+  | Add1R RawExpr                                            -- add1
+  | IndNatR RawExpr RawExpr RawExpr RawExpr                  -- ind-Nat tgt mot base step
+  | EqualR RawExpr RawExpr RawExpr                           -- Eq A from to
+  | SameR                                                    -- Refl
+  | ReplaceR RawExpr RawExpr RawExpr                         -- trans
+                                                               --   (eq : eq P from to)
+                                                               --   (mot : P -> Type)
+                                                               --   base : mot from
+  | UnitR                                                    -- Unit
+  | SoleR                                                    -- tt : Unit
+  | AbsurdR                                                  -- Absurd
+  | IndAbsurdR RawExpr RawExpr                               -- ind-Absurd (tgt : False) (ty : Type)
+  | AtomR                                                    -- Atom
+  | TickR Chars                                              -- 'a
+  | UnivR                                                    -- Type
+  | TheR RawExpr RawExpr                                     -- (exp : ty)
+  | HoleR                                                    -- _
+  deriving (Eq, Ord, Show)
+
+
+-- Core AST after renaming and elaboration.
 data Expr =
     Loc Int                               -- local variable
   | Top String                            -- top level name
@@ -89,8 +131,8 @@ data Expr =
   | Tick Chars                            -- 'a
   | U                                     -- Type
   | The Expr Expr                         -- (exp : ty)
+  | Meta Int                              -- ?n
   deriving (Eq, Ord, Show)
-
 
 pattern Var :: Int -> Expr
 pattern Var n <- Loc n
