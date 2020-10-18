@@ -12,7 +12,7 @@ import Data.String
 type TopEnv   = [(Name, Normal)]
 
 type LocalEnv = [Value]
-type Ctx = (TopEnv, LocalEnv)
+type Ctxt = (TopEnv, LocalEnv)
 
 extendEnv :: LocalEnv -> Value -> LocalEnv
 extendEnv env val = (val : env)
