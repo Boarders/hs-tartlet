@@ -1,4 +1,5 @@
-{
+
+  {
 {-# OPTIONS_GHC -fno-warn-unused-matches #-}
 module Core.Parser.Token where
 
@@ -91,8 +92,8 @@ data TokenType =
 
 alexEOF :: Alex Token
 alexEOF = do
-  (p, _, _, _) <- alexGetInput
-  return $ Token p EOF
+  (pos, _, _, _) <- alexGetInput
+  return $ Token pos EOF
 
 scanToken :: ByteString.ByteString -> Either String Token
 scanToken str = runAlex str alexMonadScan
