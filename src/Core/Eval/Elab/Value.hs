@@ -29,9 +29,7 @@ type Closure = --VCl
 data VCl = VCl VEnv RawExpr
 --data GCl = GCl GEnv VEnv RawExpr
 
-{-# INLINE appClos #-}
-appClos :: Closure -> Value -> Value
-appClos = undefined --($)
+
 
 type Ty = Value
 type Meta = Int
@@ -106,3 +104,4 @@ data Normal = Normal
   { normalTy  :: Maybe Ty
   , normalVal :: Value
   }
+
