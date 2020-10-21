@@ -14,12 +14,8 @@ module Core.Eval.Elab.Context where
 
 import Core.Expression
 import Core.Eval.EnvMachine.Value
-import qualified Core.Expression as Exp
 import Control.Monad.Except
-import Data.Monoid
 import Data.Foldable
-import Control.Applicative
-import Data.String
 
 data ConError =
   LookupError Name

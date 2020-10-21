@@ -17,7 +17,6 @@ import qualified Data.IntMap as IntMap
 import Data.IntMap ( IntMap )
 -- Note: test strict vs lazy
 import Control.Monad.State
-import Data.Foldable
 import Data.Bifunctor
 
 data ElabError = ElabError
@@ -26,9 +25,10 @@ data UnifyError =
   | OccursCheck
   | VariableError
   | ScopeError
-  | SpineError Value
+  | SpineError
   | ConvError Value Value
   | TopLevelNoType Name
+  | InferError RawExpr
 
 type MCtxt = IntMap Value
 type BVar = Int
@@ -62,10 +62,10 @@ pattern Defined :: Bind
 pattern Defined = False
 
 data Con = Con {
-    locEnv  :: LocalEnv
-  , depth   :: Int
-  , bounds  :: [Bind]
-  , tyCon   :: [(Name, Ty)] -- Use strict pair
+    localEnv      :: LocalEnv
+  , depth         :: Int
+  , bounds        :: [Bind]
+  , typingContext :: [(Name, Ty)] -- Use strict pair
   }
 
 
@@ -125,7 +125,6 @@ eval :: MCtxt -> TopEnv -> LocalEnv -> Expr -> Value
 eval metaC topEnv locEnv =
   let
     localEval = eval metaC topEnv locEnv
-    binderEval loc body val = eval metaC topEnv (extendEnv loc val) body
     vClos loc body = Closure loc body
   in
   \case
@@ -227,11 +226,11 @@ doApply metaC topEnv (VTop v (NSpine h sp) (Just (VPi _ domT depT)) val) ~arg =
     nSpine  = NSpine h (normArg : sp)
   in
     VTop v nSpine (Just subDepT) (doApply metaC topEnv val arg)
-doApply metaC topEnv fun arg = tyCheckError "doApply metaC topEnv" [fun, arg]
+doApply _ _ fun arg = tyCheckError "doApply metaC topEnv" [fun, arg]
 
 
 doApplyBds :: MCtxt -> TopEnv -> LocalEnv -> Value -> [Bind] -> Value
-doApplyBds metaC topEnv loc ~v bds = go (loc, bds)
+doApplyBds metaC topEnv locEnv ~v bounds = go (locEnv, bounds)
   where
     go :: ([Value], [Bind]) -> Value
     go =
@@ -240,8 +239,8 @@ doApplyBds metaC topEnv loc ~v bds = go (loc, bds)
       in
       \case
         ([], []) -> v
-        (bdV : loc, Bound   : bds) -> go (loc, bds) `locApp` bdV
-        (_   : loc, Defined : bds) -> go (loc, bds)
+        (bdV : lEnv, Bound   : bds) -> go (lEnv, bds) `locApp` bdV
+        (_   : lEnv, Defined : bds) -> go (lEnv, bds)
         _ -> error "doApplyBds: ctxt error"
 
 
@@ -269,7 +268,7 @@ doIndAbsurd v mot = tyCheckError "doIndAbsurd" [v, mot]
 
 
 doReplace :: MCtxt -> TopEnv -> Value -> Value -> Value -> Value
-doReplace metaC topEnv VSame _ base = base
+doReplace _ _ VSame _ base = base
 doReplace metaC topEnv (VNeutral (Just (VEqual ty from to)) neu) mot base =
   let
     transTgt = doApply metaC topEnv mot to
@@ -277,7 +276,7 @@ doReplace metaC topEnv (VNeutral (Just (VEqual ty from to)) neu) mot base =
     baseT    = doApply metaC topEnv motT from
   in
     VNeutral (Just transTgt) (NReplace neu (Normal (Just motT) mot) (Normal (Just baseT) base))
-doReplace metaC topEnv eq mot base = tyCheckError "doReplace" [eq, mot, base]
+doReplace _ _ eq mot base = tyCheckError "doReplace" [eq, mot, base]
 
 
 indNatStepType :: Value -> Value
@@ -297,7 +296,7 @@ indNatMot =
   eval mempty [] [] $ Pi "n" Nat U
 
 doIndNatStep :: MCtxt -> TopEnv -> Value -> Value -> Value -> Value -> Value
-doIndNatStep metaC topEnv VZero _ base _ = base
+doIndNatStep _ _ VZero _ base _ = base
 doIndNatStep metaC topEnv (VAdd1 nV) mot base step =
   doApply metaC topEnv (doApply metaC topEnv step nV) (doIndNatStep metaC topEnv nV mot base step)
 doIndNatStep metaC topEnv tgt@(VNeutral (Just VNat) neu) mot base step =
@@ -312,7 +311,7 @@ doIndNatStep metaC topEnv tgt@(VNeutral (Just VNat) neu) mot base step =
        (Normal (Just baseT) base)
        (Normal (Just indT) step)
       )
-doIndNatStep metaC topEnv nVal mot base step = tyCheckError "doIndNatStep" [nVal, mot, base, step]
+doIndNatStep _ _ nVal mot base step = tyCheckError "doIndNatStep" [nVal, mot, base, step]
 
 
 readBackNormal :: Bool -> MCtxt -> TopEnv -> Int -> Normal -> Expr
@@ -344,18 +343,18 @@ readBackTyped unf metaC topEnv depth ty val = go depth (ty, val)
             varV = VNeutral (Just domT) (NVar fresh)
           in
             Lam name $
-              go fresh ((Just $ appClos metaC topEnv depT varV), (doApply metaC topEnv fun varV))
+              go fresh ((Just $ localAppClos depT varV), (localDoApply fun varV))
         (Nothing, fun@(VLam name _)) ->
           let
             varV = VNeutral Nothing (NVar fresh)
           in
             Lam name $
-              go fresh (Nothing, (doApply metaC topEnv fun varV))
+              go fresh (Nothing, (localDoApply fun varV))
         (Just (VSigma _ carT cdrT), pair) ->
           let
             carV = doCar pair
             cdrV = doCdr metaC topEnv pair
-            depT = appClos metaC topEnv cdrT carV
+            depT = localAppClos cdrT carV
           in
             Cons
               (go d ((Just carT), carV))
@@ -384,7 +383,7 @@ readBackTyped unf metaC topEnv depth ty val = go depth (ty, val)
         (_, VSigma n carT cdrT) ->
          let
            varV  = VNeutral (Just carT) (NVar fresh)
-           cdrV  = appClos metaC topEnv cdrT varV
+           cdrV  = localAppClos cdrT varV
            cdrTFin = go fresh (Just VU, cdrV)
            carTFin = go d (Just VU, carT)
          in
@@ -466,8 +465,8 @@ extPR :: PartialRename -> PartialRename
 extPR (PartialRename lenD lenR ren) = PartialRename (lenD + 1) (lenR + 1) (IntMap.insert lenR lenD ren)
 
 invert :: forall m . (MonadError UnifyError m) => TopEnv -> Int -> [Value] -> ElabM m PartialRename
-invert topEnv gamma sp = do
-  (dom, ren) <- go sp
+invert topEnv gamma spine = do
+  (dom, ren) <- go spine
   pure $ PartialRename dom gamma ren
   where
     go :: [Value] -> ElabM m (Int, IntMap Int)
@@ -483,11 +482,11 @@ invert topEnv gamma sp = do
 rename
   :: forall m . (MonadError UnifyError m)
   => TopEnv -> Int -> PartialRename -> Value -> ElabM m Expr
-rename topEnv meta pren v = do go pren v
+rename topEnv meta partialRename v = go partialRename v
   where
   goSp :: PartialRename -> Expr -> [Value] -> ElabM m Expr
-  goSp pr t [] = pure t
-  goSp pr t (u : sp) = App <$> goSp pren t sp <*> go pren u
+  goSp _  t [] = pure t
+  goSp pr t (u : sp) = App <$> goSp pr t sp <*> go pr u
     
   go :: PartialRename -> Value -> ElabM m Expr
   go pr t = do
@@ -515,7 +514,7 @@ rename topEnv meta pren v = do go pren v
       VPair car cdr -> Cons <$> (go pr car) <*> (go pr cdr)
       VNat -> pure Nat
       VZero -> pure Zero
-      VAdd1 v -> Add1 <$> go pr v
+      VAdd1 nat -> Add1 <$> go pr nat
       VEqual ty from to -> Equal <$> (go pr ty) <*> (go pr from) <*> (go pr to)
       VSame -> pure Same
       VTrivial -> pure Trivial
@@ -533,6 +532,9 @@ rename topEnv meta pren v = do go pren v
     NSpine (HVar i) sp -> case IntMap.lookup i (ren pr) of
       Just i' -> goSp pr (Var $ level2Index (domL pr) i') (fmap normalVal sp)
       Nothing -> throwError ScopeError
+    NSpine (HMeta meta') _  | meta == meta' -> throwError OccursCheck
+    NSpine (HMeta meta') sp | otherwise -> goSp pr (Meta meta') (fmap normalVal sp)
+            
       
     NCar neu' -> Car <$> goNeu pr neu'
     NCdr neu' -> Cdr <$> goNeu pr neu'
@@ -608,13 +610,13 @@ unify topEnv = go 0 where
           depth' = depth + 1
           varV = VVar depth
         in
-          go (depth + 1) (localAppClos body1 varV) (localDoApply f2 varV)
+          go depth' (localAppClos body1 varV) (localDoApply f2 varV)
       (f1, VLam _ body2) ->
         let
           depth' = depth + 1
           varV   = VVar depth
         in
-          go (depth + 1) (localAppClos body2 varV) (localDoApply f1 varV) 
+          go depth' (localAppClos body2 varV) (localDoApply f1 varV) 
       (VSigma _ dom1T dep1T, VSigma _ dom2T dep2T) ->
         let
           depth' = depth + 1
@@ -654,6 +656,7 @@ unify topEnv = go 0 where
     (u1 : sp1' , u2 : sp2') ->
       go depth (normalVal u1) (normalVal u2) >>
       goSp depth sp1' sp2'
+    (_, _) -> throwError SpineError
       
 
 freshMeta
@@ -668,8 +671,10 @@ check :: forall m . (Monad m, MonadError UnifyError m) =>
   TopEnv -> Con -> RawExpr -> Ty -> ElabM m Expr
 check topEnv = go 0
   where
+
     go :: Int -> Con -> RawExpr -> Ty -> ElabM m Expr
     go depth con exprR ty = do
+      let evalCon = (topEnv, localEnv con)
       (_, metaC) <- get
       let localAppClos = appClos metaC topEnv
       tySolved <- forceM topEnv ty
@@ -680,9 +685,9 @@ check topEnv = go 0
             depth' = depth + 1
             tyEnv' = bind con n domT -- extendTyEnv tyEnv domT          
           Lam n <$> go depth' tyEnv' body (localAppClos depT varV)
-        (ConsR carR cdrR, VSigma n domT depT) -> do
+        (ConsR carR cdrR, VSigma _ domT depT) -> do
           carE <- go depth con carR domT
-          carV <- evalM (topEnv, (locEnv con)) carE
+          carV <- evalM evalCon carE
           go depth con cdrR (localAppClos depT carV)
         (SameR, VEqual mot from to) -> do
           unless (conv' metaC topEnv mot from to)
@@ -696,39 +701,34 @@ check topEnv = go 0
           pure expr
 
 
-freshClos1 :: (Monad m) => TopEnv -> Con -> Int -> ElabM m (Ty, Closure)
-freshClos1 topEnv ctxt depth = do
+freshClos1 :: (Monad m) => TopEnv -> Con -> ElabM m (Ty, Closure)
+freshClos1 topEnv ctxt = do
   dom <- freshMeta ctxt
   ~domV <- evalM (topEnv, []) dom
-  let depth' = depth + 1
-  dep <- freshMeta ctxt
-  metaC <- gets snd
+  dep <- freshMeta (bind ctxt metaVar domV)
   let ~depCl = Closure [domV] dep
   pure (domV, depCl)
-
-closureVal :: Con -> Value -> Closure
-closureVal con t = undefined
 
 
 synth ::
   forall m . (Monad m, MonadError UnifyError m)
   => TopEnv -> Con -> RawExpr -> ElabM m (Expr, Ty)
-synth topEnv ctxt = go 0 ctxt
+synth topEnv context = go 0 context
   where
     go :: Int -> Con -> RawExpr -> ElabM m (Expr, Ty)
     go depth ctxt =
       let
-        evalCon = (topEnv, locEnv ctxt)
+        evalCon = (topEnv, localEnv ctxt)
       in
       \case
         LocR nm ->
           let
             getDBInd :: DBInd -> [(Name, Ty)] -> ElabM m (Expr, Ty)
-            getDBInd ind ((nm', ty) : tys) | nm == nm' =  pure (Loc ind, ty)
+            getDBInd ind ((nm', ty) : _) | nm == nm' =  pure (Loc ind, ty)
             getDBInd ind (_ : tys) = getDBInd (ind + 1) tys
-            getDBInd ind  _ = throwError ScopeError
+            getDBInd _  _ = throwError ScopeError
           in
-            getDBInd 0 (tyCon ctxt)
+            getDBInd 0 (typingContext ctxt)
 
         UnivR -> pure (U, VU)
         TickR chrs -> pure (Tick chrs, VAtom)
@@ -743,13 +743,13 @@ synth topEnv ctxt = go 0 ctxt
           pure (Add1 nExpr, VNat)
         CarR pR -> do
           (pE, tyP) <- go depth ctxt pR
-          (domT, depT) <- freshClos1 topEnv ctxt depth
+          (domT, depT) <- freshClos1 topEnv ctxt
           unify topEnv tyP (VSigma metaVar domT depT)
           pure (pE, domT)
         CdrR pR -> do
           metaC <- gets snd
           (pE, tyP) <- go depth ctxt pR
-          (domT, depT) <- freshClos1 topEnv ctxt depth
+          (domT, depT) <- freshClos1 topEnv ctxt
           unify topEnv tyP (VSigma metaVar domT depT)
           let depSub = appClos metaC topEnv depT domT
           pure (pE, depSub)
@@ -763,7 +763,7 @@ synth topEnv ctxt = go 0 ctxt
           unify topEnv motTy indNatMot
           (baseE, baseTy) <- go depth ctxt base
           unify topEnv baseTy (doApply metaC topEnv motV VZero)
-          (stepE, stepTy) <- go depth ctxt base
+          (stepE, stepTy) <- go depth ctxt step
           unify topEnv stepTy (indNatStepType motV)
           pure (IndNat tgtE motE baseE stepE, doApply metaC topEnv stepTy tgtV)
         PiR n domR depR -> do
@@ -788,17 +788,21 @@ synth topEnv ctxt = go 0 ctxt
           funTySol <- forceM topEnv funTy
           (domV, depV) <-
             case funTySol of
-              VPi n domT depT -> pure (domT, depT)
+              VPi _ domT depT -> pure (domT, depT)
               _ -> do
-                (domT, depT) <- freshClos1 topEnv ctxt depth
+                (domT, depT) <- freshClos1 topEnv ctxt
                 unify topEnv funTySol (VPi newVar domT depT)
                 pure (domT, depT)
           argE <- check topEnv ctxt argR domV
           argV <- evalM evalCon argE
-          pure (App funE argE, appClos metaC topEnv depV domV)
-          pure undefined
-        LamR n body -> do
-          pure undefined
+          pure (App funE argE, appClos metaC topEnv depV argV)
+        LamR n bodyR -> do
+          metaC <- gets snd
+          domE  <- freshMeta ctxt
+          domV  <- evalM evalCon domE
+          (bodyE, bodyTy) <- go (depth + 1) (bind ctxt n domV) bodyR
+          let bodyTyE = readBackTyped False metaC topEnv depth Nothing bodyTy
+          pure (Lam n bodyE, VPi n domV (Closure (localEnv ctxt) bodyTyE))
         EqualR motR fromR toR -> do
           (motE, motTy) <- go depth ctxt motR
           motV <- evalM evalCon motE
@@ -824,8 +828,7 @@ synth topEnv ctxt = go 0 ctxt
           pure (Replace eqE motE baseE, doApply metaC topEnv motV toV)
         IndAbsurdR tgtR tyR -> do
           (tgtE, tgtTy) <- go depth ctxt tgtR
-          tgtV <- evalM evalCon tgtE
-          unify topEnv tgtV VAbsurd
+          unify topEnv tgtTy VAbsurd
           tyE <- check topEnv ctxt tyR VU
           tyV <- evalM evalCon tyE
           pure (IndAbsurd tgtE tyE, tyV)
@@ -834,16 +837,16 @@ synth topEnv ctxt = go 0 ctxt
           tyV   <- evalM evalCon tyE
           exprE <- check topEnv ctxt exprR tyV
           pure (The exprE tyE, tyV)
-
         topR@(TopR n) -> case lookup n topEnv of
           Nothing -> throwError ScopeError
           Just norm ->
             let
-              ~expr = normalVal norm
-              ty    = normalTy  norm
+              tyM    = normalTy  norm
             in
-              case ty of
+              case tyM of
                 Nothing -> throwError $ TopLevelNoType n
                 Just ty -> do
-                  check topEnv ctxt topR ty
+                  _ <- check topEnv ctxt topR ty
                   pure (Top n, ty)
+        restR -> do
+          throwError $ InferError restR
