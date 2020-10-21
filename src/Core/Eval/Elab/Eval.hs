@@ -128,7 +128,7 @@ eval metaC topEnv locEnv =
     localEval = eval metaC topEnv locEnv
     binderEval loc body val = eval metaC topEnv (extendEnv loc val) body
  -- abstract building a closure to switch from HOAS
-    vClos loc body = \val -> binderEval loc body val
+    vClos loc body = Closure loc body -- \val -> binderEval loc body val
   in
   \case
     (Loc v) -> evalLocVar locEnv v
@@ -264,7 +264,7 @@ doReplace metaC VSame _ base = base
 doReplace metaC (VNeutral (Just (VEqual ty from to)) neu) mot base =
   let
     transTgt = doApply mot to
-    motT     = VPi "_" ty \_ -> VU
+    motT     = VPi "_" ty $ constClos U
     baseT    = doApply motT from
   in
     VNeutral (Just transTgt) (NReplace neu (Normal (Just motT) mot) (Normal (Just baseT) base))
@@ -294,7 +294,7 @@ doIndNatStep metaC (VAdd1 nV) mot base step =
 doIndNatStep metaC tgt@(VNeutral (Just VNat) neu) mot base step =
   let
     indT  = indNatStepType mot
-    motT  = VPi "_" VNat \_ -> VU
+    motT  = VPi "_" VNat $ constClos U
     baseT = doApply mot VZero
   in
     VNeutral (Just $ doApply mot tgt)
@@ -373,7 +373,7 @@ readBackTyped unf metaC depth ty val = go depth (ty, val)
         (_, VSigma n carT cdrT) ->
          let
            varV  = VNeutral (Just carT) (NVar fresh)
-           cdrV  = cdrT varV
+           cdrV  = appClos cdrT varV
            cdrTFin = go fresh (Just VU, cdrV)
            carTFin = go d (Just VU, carT)
          in
@@ -593,7 +593,7 @@ unify topEnv = go 0 where
           depth' = depth + 1
           varV = VVar depth
         in
-          go (depth + 1) (body1 varV) (doApply f2 varV)
+          go (depth + 1) (appClos body1 varV) (doApply f2 varV)
       (f1, VLam _ body2) ->
         let
           depth' = depth + 1
@@ -606,14 +606,14 @@ unify topEnv = go 0 where
           varV  = VVar depth
         in
           go depth dom1T dom2T >>
-          go depth' (dep1T varV) (dep2T varV)
+          go depth' (appClos dep1T varV) (appClos dep2T varV)
       (VPi _ dom1T dep1T, VPi _ dom2T dep2T) ->
         let
           depth' = depth + 1
           varV  = VVar depth
         in
           go depth dom1T dom2T >>
-          go depth' (dep1T varV) (dep2T varV)  
+          go depth' (appClos dep1T varV) (appClos dep2T varV)  
       (VPair car1 cdr1, VPair car2 cdr2) ->
         go depth car1 car2 >>
         go depth cdr1 cdr2
@@ -686,7 +686,7 @@ freshClos1 topEnv depth = do
   let depth' = depth + 1
   dep <- freshMeta
   metaC <- gets snd
-  let ~depCl = \val -> eval metaC topEnv [domV] dep
+  let ~depCl = Closure [domV] dep
   pure (domV, depCl)
 
 closureVal :: Con -> Value -> Closure

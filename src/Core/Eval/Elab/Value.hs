@@ -11,7 +11,6 @@ type TopEnv   = [(Name, Normal)]
 type LocalEnv = [Value]
 type TyEnv = [Ty]
 type Ctxt = (TopEnv, LocalEnv)
-data Env a = ENil | EDef (Env a) ~a | ESkip (Env a)
 type VEnv = [Value]
   --Env Value
   
@@ -24,8 +23,11 @@ extendTyEnv :: TyEnv -> Ty -> TyEnv
 extendTyEnv tyEnv ty = (ty : tyEnv)
 
 
-type Closure = --VCl
-  Value -> Value
+data Closure = Closure VEnv Expr
+
+constClos :: Expr -> Closure
+constClos expr = Closure mempty expr
+
 data VCl = VCl VEnv RawExpr
 --data GCl = GCl GEnv VEnv RawExpr
 
