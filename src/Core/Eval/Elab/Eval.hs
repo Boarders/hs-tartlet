@@ -456,19 +456,19 @@ noUnfold :: Bool
 noUnfold = False
 
 
-data PRename = PRename
+data PartialRename = PartialRename
   { domL :: Int
   , codL :: Int
   , ren  :: IntMap Int
   }
 
-extPR :: PRename -> PRename
-extPR (PRename lenD lenR ren) = PRename (lenD + 1) (lenR + 1) (IntMap.insert lenR lenD ren)
+extPR :: PartialRename -> PartialRename
+extPR (PartialRename lenD lenR ren) = PartialRename (lenD + 1) (lenR + 1) (IntMap.insert lenR lenD ren)
 
-invert :: forall m . (MonadError UnifyError m) => TopEnv -> Int -> [Value] -> ElabM m PRename
+invert :: forall m . (MonadError UnifyError m) => TopEnv -> Int -> [Value] -> ElabM m PartialRename
 invert topEnv gamma sp = do
   (dom, ren) <- go sp
-  pure $ PRename dom gamma ren
+  pure $ PartialRename dom gamma ren
   where
     go :: [Value] -> ElabM m (Int, IntMap Int)
     go [] = pure (0, mempty)
@@ -482,14 +482,14 @@ invert topEnv gamma sp = do
 
 rename
   :: forall m . (MonadError UnifyError m)
-  => TopEnv -> Int -> PRename -> Value -> ElabM m Expr
+  => TopEnv -> Int -> PartialRename -> Value -> ElabM m Expr
 rename topEnv meta pren v = do go pren v
   where
-  goSp :: PRename -> Expr -> [Value] -> ElabM m Expr
+  goSp :: PartialRename -> Expr -> [Value] -> ElabM m Expr
   goSp pr t [] = pure t
   goSp pr t (u : sp) = App <$> goSp pren t sp <*> go pren u
     
-  go :: PRename -> Value -> ElabM m Expr
+  go :: PartialRename -> Value -> ElabM m Expr
   go pr t = do
     (_, metaC) <- get
     tV <- forceM topEnv t
@@ -527,7 +527,7 @@ rename topEnv meta pren v = do go pren v
       VTop name _ _ _ -> pure (Top name)
       VNeutral _ neu -> goNeu pr neu
 
-  goNeu :: PRename -> Neutral -> ElabM m Expr
+  goNeu :: PartialRename -> Neutral -> ElabM m Expr
   goNeu pr = \case
     NSpine (HTop n) sp -> goSp pr (Top n) (fmap normalVal sp)
     NSpine (HVar i) sp -> case IntMap.lookup i (ren pr) of
@@ -569,7 +569,8 @@ unfoldTopVar topEnv n =
     readBack (evalTopVar topEnv n)
 
 
--- create a fresh metavariable and give back the meta expanded with all variables in scope.
+
+-- Wrap a term in lambdas up to the current depth
 lams :: Int -> Expr -> Expr
 lams depth = go 0
   where
@@ -582,7 +583,7 @@ solve
 solve topEnv depth meta sp rhsV = do
   pr <- invert topEnv depth sp
   renamedRHS <- rename topEnv meta pr rhsV
-  solution <- evalM (topEnv, mempty) $ lams depth renamedRHS
+  solution <- evalM (topEnv, mempty) $ lams (domL pr) renamedRHS
   modify' (second $ IntMap.insert meta solution)
 
 
