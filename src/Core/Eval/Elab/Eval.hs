@@ -87,8 +87,6 @@ def (Con loc dep bds tys) nm ~body ~ty =
 appClos :: MCtxt -> TopEnv -> Closure -> Value -> Value
 appClos metaC topEnv (Closure locEnv expr) val = eval metaC topEnv (val : locEnv) expr
 
-appClosM :: Closure -> Value -> ElabM m Value
-appClosM = undefined
 
 -- Take a metacontext and if the value is a meta-headed spine
 -- then see if the variable is solved and if so apply the
@@ -128,8 +126,7 @@ eval metaC topEnv locEnv =
   let
     localEval = eval metaC topEnv locEnv
     binderEval loc body val = eval metaC topEnv (extendEnv loc val) body
- -- abstract building a closure to switch from HOAS
-    vClos loc body = Closure loc body -- \val -> binderEval loc body val
+    vClos loc body = Closure loc body
   in
   \case
     (Loc v) -> evalLocVar locEnv v
@@ -146,7 +143,13 @@ eval metaC topEnv locEnv =
     Zero -> VZero
     (Add1 n) -> VAdd1 (localEval n)
     (IndNat tgt mot base step)
-      -> doIndNatStep metaC topEnv (localEval tgt) (localEval mot) (localEval base) (localEval step)
+      -> doIndNatStep
+           metaC
+           topEnv
+           (localEval tgt)
+           (localEval mot)
+           (localEval base)
+           (localEval step)
     (Equal ty from to)
       -> VEqual (localEval ty) (localEval from) (localEval to)
     Same -> VSame
@@ -161,7 +164,8 @@ eval metaC topEnv locEnv =
     U -> VU
     (The _ e) -> localEval e
     Meta m -> evalMetaVar metaC m
-    InsertedMeta meta bds -> doApplyBds metaC topEnv locEnv (evalMetaVar metaC meta) bds
+    InsertedMeta meta bds ->
+      doApplyBds metaC topEnv locEnv (evalMetaVar metaC meta) bds
 
 
 evalM :: (Monad m) => Ctxt -> Expr -> ElabM m Value
@@ -227,14 +231,18 @@ doApply metaC topEnv fun arg = tyCheckError "doApply metaC topEnv" [fun, arg]
 
 
 doApplyBds :: MCtxt -> TopEnv -> LocalEnv -> Value -> [Bind] -> Value
-doApplyBds metaC topEnv loc ~v bds =
-  let
-    locApp = doApply metaC topEnv
-  in
-    case (loc, bds) of
-      ([], []) -> v
-      (bdV : loc, Bound   : bds) -> doApplyBds metaC topEnv loc v bds `locApp` bdV
-      (_   : loc, Defined : bds) -> doApplyBds metaC topEnv loc v bds
+doApplyBds metaC topEnv loc ~v bds = go (loc, bds)
+  where
+    go :: ([Value], [Bind]) -> Value
+    go =
+      let
+        locApp = doApply metaC topEnv
+      in
+      \case
+        ([], []) -> v
+        (bdV : loc, Bound   : bds) -> go (loc, bds) `locApp` bdV
+        (_   : loc, Defined : bds) -> go (loc, bds)
+        _ -> error "doApplyBds: ctxt error"
 
 
 
@@ -649,11 +657,11 @@ unify topEnv = go 0 where
 
 freshMeta
   :: (Monad m)
-  => ElabM m Expr
-freshMeta = do
+  => Con -> ElabM m Expr
+freshMeta ctxt = do
   (meta, _) <- get
   modify' (first (+ 1))
-  pure $ Meta meta
+  pure $ InsertedMeta meta (bounds ctxt)
 
 check :: forall m . (Monad m, MonadError UnifyError m) =>
   TopEnv -> Con -> RawExpr -> Ty -> ElabM m Expr
@@ -680,19 +688,19 @@ check topEnv = go 0
             (throwError $ ConvError from to)
           pure Same
         (HoleR, _) ->
-          freshMeta
+          freshMeta con
         _ -> do
           (expr, exprTyV) <- synth topEnv con exprR
           unify topEnv exprTyV tySolved 
           pure expr
 
 
-freshClos1 :: (Monad m) => TopEnv -> Int -> ElabM m (Ty, Closure)
-freshClos1 topEnv depth = do
-  dom <- freshMeta
+freshClos1 :: (Monad m) => TopEnv -> Con -> Int -> ElabM m (Ty, Closure)
+freshClos1 topEnv ctxt depth = do
+  dom <- freshMeta ctxt
   ~domV <- evalM (topEnv, []) dom
   let depth' = depth + 1
-  dep <- freshMeta
+  dep <- freshMeta ctxt
   metaC <- gets snd
   let ~depCl = Closure [domV] dep
   pure (domV, depCl)
@@ -734,13 +742,13 @@ synth topEnv ctxt = go 0 ctxt
           pure (Add1 nExpr, VNat)
         CarR pR -> do
           (pE, tyP) <- go depth ctxt pR
-          (domT, depT) <- freshClos1 topEnv depth
+          (domT, depT) <- freshClos1 topEnv ctxt depth
           unify topEnv tyP (VSigma metaVar domT depT)
           pure (pE, domT)
         CdrR pR -> do
           metaC <- gets snd
           (pE, tyP) <- go depth ctxt pR
-          (domT, depT) <- freshClos1 topEnv depth
+          (domT, depT) <- freshClos1 topEnv ctxt depth
           unify topEnv tyP (VSigma metaVar domT depT)
           let depSub = appClos metaC topEnv depT domT
           pure (pE, depSub)
@@ -781,7 +789,7 @@ synth topEnv ctxt = go 0 ctxt
             case funTySol of
               VPi n domT depT -> pure (domT, depT)
               _ -> do
-                (domT, depT) <- freshClos1 topEnv depth
+                (domT, depT) <- freshClos1 topEnv ctxt depth
                 unify topEnv funTySol (VPi newVar domT depT)
                 pure (domT, depT)
           argE <- check topEnv ctxt argR domV
@@ -802,9 +810,9 @@ synth topEnv ctxt = go 0 ctxt
         ReplaceR eqR motR baseR -> do
           metaC <- gets snd
           (eqE, eqTy) <- go depth ctxt eqR
-          ty   <- freshMeta
-          from <- freshMeta
-          to   <- freshMeta
+          ty   <- freshMeta ctxt
+          from <- freshMeta ctxt
+          to   <- freshMeta ctxt
           eqMetaV <- evalM evalCon (Equal ty from to)
           unify topEnv eqTy eqMetaV
           motV <- evalM evalCon (Pi newVar ty U)
