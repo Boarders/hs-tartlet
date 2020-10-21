@@ -21,7 +21,10 @@ import Data.Map (Map)
 import Data.String (IsString(..))
 
 
-type Name = String
+type Name  = String
+type DBInd = Int
+type DBLvl = Int
+type MetaVar = Int
 
 newVar :: Name
 newVar = "x"
@@ -67,11 +70,9 @@ data ParsedExpr =
   deriving (Eq, Ord, Show)
 
 
--- The Raw AST that we get after renaming with debruijn indices and
--- TO DO: renaming holes with fresh meta variables
--- which we feed to elaboration
+-- The Raw AST which we feed to elaboration
 data RawExpr =
-    LocR Int                                                 -- local variable
+    LocR Name                                                -- local variable
   | TopR String                                              -- top level name
   | PiR Name RawExpr RawExpr                                 -- (a : A) -> B
   | LamR Name RawExpr                                        -- fun x => expr
@@ -104,8 +105,8 @@ data RawExpr =
 
 -- Core AST after renaming and elaboration.
 data Expr =
-    Loc Int                               -- local variable
-  | Top String                            -- top level name
+    Loc DBInd                               -- local variable
+  | Top Name                              -- top level name
   | Pi Name Expr Expr                     -- (a : A) -> B
   | Lam Name Expr                         -- fun x => expr
   | App Expr Expr                         -- rator rand
@@ -131,7 +132,8 @@ data Expr =
   | Tick Chars                            -- 'a
   | U                                     -- Type
   | The Expr Expr                         -- (exp : ty)
-  | Meta Int                              -- ?n
+  | Meta MetaVar --to do : [Sp]               -- ?n
+  | InsertedMeta MetaVar [Bool]               -- ?n bd_1 ... bd_d
   deriving (Eq, Ord, Show)
 
 pattern Var :: Int -> Expr
