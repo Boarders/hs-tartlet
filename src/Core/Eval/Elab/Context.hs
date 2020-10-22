@@ -11,9 +11,9 @@
 {-# LANGUAGE RecordWildCards      #-}
 
 module Core.Eval.Elab.Context where
-
+{-
 import Core.Expression
-import Core.Eval.EnvMachine.Value
+import Core.Eval.Elab.Value
 import Control.Monad.Except
 import Data.Foldable
 
@@ -38,7 +38,7 @@ pattern xs :|> x <- Snoc xs x
 {-# COMPLETE Nil, (:|>) #-}
 
 
-data CtxEntry = Def Ty Value | IsA Ty
+-- data CtxEntry = Def Ty Value | IsA Ty
 
 type Ctx = Bwd (Name, CtxEntry)
 
@@ -61,7 +61,7 @@ lookupType (ctx :|> (y, conEntry)) x
       IsA ty   -> pure ty
   | otherwise = lookupType ctx x
 
-
+-}
 {-
 
 findMaxId :: Ctx -> String -> Maybe Int

@@ -3,15 +3,17 @@
 
 module Core.TypeChecker where
 
+{-
 import Core.Expression
 
-import Core.Eval
+import qualified Core.Eval as Eval
 
 import Control.Applicative
 import Control.Monad.Except
 
 data TyCheckError =
   TyCheckError
+
 
 lookupLoc :: MonadError TyCheckError m => LocalEnv -> Int -> m Ty
 lookupLoc env i = pure $ env !! i
@@ -166,3 +168,4 @@ natMotTy = VPi dummyVar VNat (\_ -> VU)
 
 eqMotTy :: Value -> Value
 eqMotTy tyV = VPi dummyVar tyV (\_ -> VU)
+-}

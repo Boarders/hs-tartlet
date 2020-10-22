@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Core.Eval (
     module Value
-  , module Context
+--  , module Context
   , module Eval
   ) where
 
-import Core.Expression
-import Core.Eval.MetaLang.Value as Value
-import Core.Eval.MetaLang.Value as Context
-import Core.Eval.MetaLang.Eval as Eval
+-- import Core.Expression
+import Core.Eval.Elab.Value   as Value
+--import Core.Eval.Elab.Context as Context
+import Core.Eval.Elab.Eval    as Eval
 
 {-
 

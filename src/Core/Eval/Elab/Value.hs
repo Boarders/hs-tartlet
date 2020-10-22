@@ -7,7 +7,6 @@ module Core.Eval.Elab.Value where
 import Core.Expression
 
 type TopEnv   = [(Name, Normal)]
-
 type LocalEnv = [Value]
 type TyEnv = [Ty]
 type Ctxt = (TopEnv, LocalEnv)
