@@ -3,7 +3,7 @@ module Core.Parser.Parse ( parseExpr ) where
 
 import Core.Parser.Token
 import Core.Parser.Helper
-import Core.Expression (ParsedExpr(..))
+import Core.Expression (RawExpr(..))
 import qualified Core.Expression as Expr
 }
 
@@ -42,43 +42,43 @@ import qualified Core.Expression as Expr
     univ      { Token _ Univ         }
 %%
 
-AnnExpr :: { Expr.ParsedExpr }
+AnnExpr :: { Expr.RawExpr }
          : ArrExpr { $1 }
-         | ArrExpr ann ArrExpr { TheP $1 $3 }
+         | ArrExpr ann ArrExpr { TheR $1 $3 }
 
-ArrExpr :: { Expr.ParsedExpr }
-         : '(' var ann InfExpr ')' arr  ArrExpr { PiP $2 $4 $7 }
-         | Atom arr ArrExpr {PiP Expr.dummyVar $1 $3}
-         | '(' var ann InfExpr ')' prod ArrExpr  { SigmaP $2 $4 $7 }
+ArrExpr :: { Expr.RawExpr }
+         : '(' var ann InfExpr ')' arr  ArrExpr { PiR $2 $4 $7 }
+         | Atom arr ArrExpr {PiR Expr.dummyVar $1 $3}
+         | '(' var ann InfExpr ')' prod ArrExpr  { SigmaR $2 $4 $7 }
          | InfExpr { $1 }
 
-InfExpr :: { Expr.ParsedExpr }
-         : add1 InfExpr { Add1P $2 }
-         | cons InfExpr InfExpr { ConsP $2 $3 }
-         | car InfExpr { CarP $2 }
-         | cdr InfExpr { CdrP  $2 }
-         | fun var '=>' InfExpr { LamP $2 $4 }
-         | indnat InfExpr InfExpr InfExpr InfExpr { IndNatP $2 $3 $4 $5 }
-         | trans InfExpr InfExpr InfExpr { ReplaceP $2 $3 $4 }
-         | eq InfExpr InfExpr InfExpr { EqualP $2 $3 $4 }
-         | indabsurd InfExpr ArrExpr { IndAbsurdP $2 $3}
+InfExpr :: { Expr.RawExpr }
+         : add1 InfExpr { Add1R $2 }
+         | cons InfExpr InfExpr { ConsR $2 $3 }
+         | car InfExpr { CarR $2 }
+         | cdr InfExpr { CdrR  $2 }
+         | fun var '=>' InfExpr { LamR $2 $4 }
+         | indnat InfExpr InfExpr InfExpr InfExpr { IndNatR $2 $3 $4 $5 }
+         | trans InfExpr InfExpr InfExpr { ReplaceR $2 $3 $4 }
+         | eq InfExpr InfExpr InfExpr { EqualR $2 $3 $4 }
+         | indabsurd InfExpr ArrExpr { IndAbsurdR $2 $3}
          | AppSpine { $1 }
 
-AppSpine :: { Expr.ParsedExpr }
-          : AppSpine Atom { AppP $1 $2 }
+AppSpine :: { Expr.RawExpr }
+          : AppSpine Atom { AppR $1 $2 }
           | Atom { $1 }
 
-Atom :: { Expr.ParsedExpr }
+Atom :: { Expr.RawExpr }
       : '(' AnnExpr ')' { $2 }
-      | var          { VarP $1 }
-      | zero         { ZeroP }
-      | tt           { SoleP }
-      | refl         { SameP }
-      | nat          { NatP }
-      | univ         { UnivP }
-      | absurd       { AbsurdP }
-      | unit         { UnitP }
-      | atom         { AtomP }
-      | tick         { TickP $1 }
+      | var          { LocR $1 }
+      | zero         { ZeroR }
+      | tt           { SoleR }
+      | refl         { SameR }
+      | nat          { NatR }
+      | univ         { UnivR }
+      | absurd       { AbsurdR }
+      | unit         { UnitR }
+      | atom         { AtomR }
+      | tick         { TickR $1 }
 
 {}

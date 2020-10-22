@@ -37,39 +37,6 @@ metaVar = "?meta"
 
 type Chars = String
 
--- The named AST we get after parsing
-data ParsedExpr =
-    VarP String                                                    -- local variable
-  | TopP String                                                    -- top level name
-  | PiP Name ParsedExpr ParsedExpr                                 -- (a : A) -> B
-  | LamP Name ParsedExpr                                           -- fun x => expr
-  | AppP ParsedExpr ParsedExpr                                     -- rator rand
-  | SigmaP Name ParsedExpr ParsedExpr                              -- ((a : A) * B)
-  | ConsP ParsedExpr ParsedExpr                                    -- cons fst snd
-  | CarP ParsedExpr                                                -- car p
-  | CdrP ParsedExpr                                                -- cdr p
-  | NatP                                                           -- Nat
-  | ZeroP                                                          -- zero
-  | Add1P ParsedExpr                                               -- add1
-  | IndNatP ParsedExpr ParsedExpr ParsedExpr ParsedExpr            -- ind-Nat tgt mot base step
-  | EqualP ParsedExpr ParsedExpr ParsedExpr                        -- Eq A from to
-  | SameP                                                          -- Refl
-  | ReplaceP ParsedExpr ParsedExpr ParsedExpr                      -- trans
-                                                                     --   (eq : eq P from to)
-                                                                     --   (mot : P -> Type)
-                                                                     --   base : mot from
-  | UnitP                                                          -- Unit
-  | SoleP                                                          -- tt : Unit
-  | AbsurdP                                                        -- Absurd
-  | IndAbsurdP ParsedExpr ParsedExpr                               -- ind-Absurd (tgt : False) (ty : Type)
-  | AtomP                                                          -- Atom
-  | TickP Chars                                                    -- 'a
-  | UnivP                                                          -- Type
-  | TheP ParsedExpr ParsedExpr                                     -- (exp : ty)
-  | HoleP                                                          -- _     
-  deriving (Eq, Ord, Show)
-
-
 -- The Raw AST which we feed to elaboration
 data RawExpr =
     LocR Name                                                -- local variable
