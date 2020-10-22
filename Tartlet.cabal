@@ -65,12 +65,6 @@ Library Core
   exposed-modules:
       Core.Expression
       Core.Eval
-      Core.Eval.EnvMachine.Context
-      Core.Eval.EnvMachine.Value
-      Core.Eval.EnvMachine.Eval
-      Core.Eval.MetaLang.Context
-      Core.Eval.MetaLang.Value
-      Core.Eval.MetaLang.Eval
       Core.Eval.Elab.Context
       Core.Eval.Elab.Value
       Core.Eval.Elab.Eval
@@ -80,6 +74,7 @@ Library Core
       Core.TypeChecker
       Core.TypeChecker.Judgement
       Core.Elab
+      Core.CEK.Eval
       -- Core.PrettyPrint
 
   default-language:
