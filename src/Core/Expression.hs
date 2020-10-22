@@ -9,6 +9,8 @@
 {-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DerivingStrategies   #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 
 module Core.Expression where
 
@@ -16,9 +18,10 @@ module Core.Expression where
 -- import Data.Foldable
 -- import Test.QuickCheck
 --import Data.String
-import qualified Data.Map as Map
-import Data.Map (Map)
-import Data.String (IsString(..))
+--import qualified Data.Map as Map
+--import Data.Map (Map)
+--import Data.String (IsString(..))
+--import Data.Kind (Type)
 
 
 type Name  = String
@@ -36,6 +39,19 @@ metaVar :: Name
 metaVar = "?meta"
 
 type Chars = String
+
+data PrimBinOp where
+  PIAdd :: PrimBinOp
+  deriving (Eq, Ord, Show)
+
+data PrimTy where
+  PTyInt :: PrimTy
+  deriving (Eq, Ord, Show)
+
+data Prim  where
+  PInt :: Int -> Prim
+  deriving (Eq, Ord, Show)
+
 
 -- The Raw AST which we feed to elaboration
 data RawExpr =
@@ -67,8 +83,12 @@ data RawExpr =
   | UnivR                                                    -- Type
   | TheR RawExpr RawExpr                                     -- (exp : ty)
   | HoleR                                                    -- _
+  | PrimR PrimTy Prim                                        -- primitive data
+  | PrimBinOpR RawExpr RawExpr                               -- primitive ops
   deriving (Eq, Ord, Show)
 
+fromPrim :: Prim -> RawExpr
+fromPrim p@(PInt _) = PrimR PTyInt p
 
 -- Core AST after renaming and elaboration.
 data Expr =
