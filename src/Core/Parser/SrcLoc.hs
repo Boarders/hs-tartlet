@@ -40,3 +40,6 @@ getLineNo (SrcPos _ l _) = l
 
 getCol :: SrcPos -> Int
 getCol (SrcPos _ _ c) = c
+
+tokSrcPos :: Token -> SrcPos
+tokSrcPos = srcPos . getPos
