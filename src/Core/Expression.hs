@@ -22,6 +22,7 @@ module Core.Expression where
 --import Data.Map (Map)
 --import Data.String (IsString(..))
 --import Data.Kind (Type)
+import Core.Parser.SrcLoc
 
 
 type Name  = String
@@ -51,6 +52,7 @@ data PrimTy where
 data Prim  where
   PInt :: Int -> Prim
   deriving (Eq, Ord, Show)
+
 
 
 -- The Raw AST which we feed to elaboration
@@ -86,6 +88,8 @@ data RawExpr =
   | PrimR Prim                                               -- primitive data
   | PrimTyR PrimTy                                           -- primitive types
   | PrimBinOpR PrimBinOp RawExpr RawExpr                     -- primitive ops
+  | SrcPos SrcPos RawExpr
+  | SrcPSan SrcSpan RawExpr
   deriving (Eq, Ord, Show)
 
 
