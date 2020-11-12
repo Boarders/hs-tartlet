@@ -21,6 +21,7 @@ import Data.ByteString.Lazy as ByteString
 
 type Parser a = Alex a
 
+
 thenP :: Parser a -> (a -> Parser b) -> Parser b
 thenP = (>>=)
 

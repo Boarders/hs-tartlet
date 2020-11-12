@@ -56,7 +56,10 @@ tok_app f = tok' (\s -> f (Char8.unpack s))
 
 type Chars = String
 
-data Token = Token AlexPosn TokenType
+data Token = Token
+  { getPos   :: AlexPosn
+  , getToken :: TokenType
+  }
   deriving (Eq, Show)
 
 -- The token type:
@@ -89,6 +92,20 @@ data TokenType =
   EOF
   deriving (Eq,Show)
 
+
+getTick :: Token -> Chars
+getTick = unTick . getToken
+
+getVar :: Token -> Chars
+getVar = unVar . getToken
+
+unVar :: TokenType -> Chars
+unVar (Var c) = c
+unVar _ = error "Token.x.unVar: used on argument without Var"
+
+unTick :: TokenType -> Chars
+unTick (Tick c) = c
+unTick _ = error "Token.x.unTick: used on argument without Tick"
 
 alexEOF :: Alex Token
 alexEOF = do
