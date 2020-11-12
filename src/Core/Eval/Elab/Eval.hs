@@ -31,14 +31,7 @@ data UnifyError =
   | InferError RawExpr
 
 type MCtxt = IntMap Value
-type BVar = Int
 
-data Entry = B Value | Def Value
-
-data ECtxt = ECtxt
-  { eValues :: [Maybe Value]
-  , eTypes  :: [Value]
-  }
 
 (?!) :: [a] -> Int -> Maybe a
 (?!) l n = go l n
@@ -47,8 +40,6 @@ data ECtxt = ECtxt
     go (x : _) 0 = Just x
     go (_ : xs) i = go xs (i - 1)
 
-eNil :: ECtxt
-eNil = ECtxt [] []
 
 -- To do add a reader for the topEnv to this
 type ElabM m = StateT (Int, MCtxt) m
@@ -179,23 +170,12 @@ evalPrim = VPrim
 
 evalPrimBinOp :: PrimBinOp -> Value -> Value -> Value
 evalPrimBinOp PAddI (VPrim (PInt n1)) (VPrim (PInt n2)) =
-  VPrim (PInt $ n1 + n2)
+  VPrim (PInt (n1 + n2))
 evalPrimBinOp op (VNeutral (Just (VPrimTy PTyInt)) neu1) ~v2 =
   VNeutral (Just (VPrimTy PTyInt)) (NPrimBinOp op neu1 (Normal (Just (VPrimTy PTyInt)) v2))
 evalPrimBinOp _ ~v1 ~v2 =
   tyCheckError "evalPrimBinOpError" [v1, v2]
 
-
-  
- {-
-doApply metaC topEnv (VNeutral (Just (VPi _ domT depT)) (NSpine h sp)) ~arg =
-  let
-    subDepT = appClos metaC topEnv depT arg
-    normArg = Normal (Just domT) arg
-  in
-    VNeutral (Just subDepT) (NSpine h (normArg : sp))  
-  undefined
-  -}
 
 evalLocVar :: LocalEnv -> Int -> Value
 evalLocVar locEnv depth =
@@ -482,7 +462,6 @@ fullyUnfold = True
 noUnfold :: Bool
 noUnfold = False
 
-
 data PartialRename = PartialRename
   { domL :: Int
   , codL :: Int
@@ -490,7 +469,8 @@ data PartialRename = PartialRename
   }
 
 extPR :: PartialRename -> PartialRename
-extPR (PartialRename lenD lenR ren) = PartialRename (lenD + 1) (lenR + 1) (IntMap.insert lenR lenD ren)
+extPR (PartialRename lenD lenR ren)
+  = PartialRename (lenD + 1) (lenR + 1) (IntMap.insert lenR lenD ren)
 
 invert :: forall m . (MonadError UnifyError m) => TopEnv -> Int -> [Value] -> ElabM m PartialRename
 invert topEnv gamma spine = do
@@ -623,8 +603,8 @@ solve topEnv depth meta sp rhsV = do
 
 
 unify :: forall m . (MonadError UnifyError m)
-  => TopEnv -> Value -> Value -> ElabM m ()
-unify topEnv = go 0 where
+  => Int -> TopEnv -> Value -> Value -> ElabM m ()
+unify d topEnv = go d where
   go :: Int -> Value -> Value -> ElabM m ()
   go depth lhs rhs = do
     metaC <- gets snd
@@ -687,8 +667,8 @@ unify topEnv = go 0 where
   goSp depth sp1 sp2 = case (sp1, sp2) of
     ([], []) -> pure ()
     (u1 : sp1' , u2 : sp2') ->
-      go depth (normalVal u1) (normalVal u2) >>
-      goSp depth sp1' sp2'
+      goSp depth sp1' sp2' >>
+      go depth (normalVal u1) (normalVal u2)
     (_, _) -> throwError SpineError
       
 
@@ -702,7 +682,7 @@ freshMeta ctxt = do
 
 check :: forall m . (Monad m, MonadError UnifyError m) =>
   TopEnv -> Con -> RawExpr -> Ty -> ElabM m Expr
-check topEnv = go 0
+check topEnv ctxt = go (depth ctxt) ctxt
   where
 
     go :: Int -> Con -> RawExpr -> Ty -> ElabM m Expr
@@ -732,7 +712,7 @@ check topEnv = go 0
           freshMeta con
         _ -> do
           (expr, exprTyV) <- synth topEnv con exprR
-          unify topEnv exprTyV tySolved 
+          unify depth topEnv exprTyV tySolved 
           pure expr
 
 
@@ -754,6 +734,7 @@ synth topEnv context = go 0 context
     go depth ctxt =
       let
         evalCon = (topEnv, localEnv ctxt)
+        -- to do: use localUnify
       in
       \case
         LocR nm ->
@@ -774,54 +755,54 @@ synth topEnv context = go 0 context
         ZeroR   -> pure (Zero, VNat)
         Add1R n -> do
           (nExpr, ty) <- go depth ctxt n
-          unify topEnv ty VNat
+          unify depth topEnv ty VNat
           pure (Add1 nExpr, VNat)
         PrimBinOpR op arg1 arg2 -> do
           (arg1E, ty1) <- go depth ctxt arg1
-          unify topEnv ty1 (VPrimTy PTyInt)
+          unify depth topEnv ty1 (VPrimTy PTyInt)
           (arg2E, ty2) <- go depth ctxt arg2
-          unify topEnv ty2 (VPrimTy PTyInt)          
+          unify depth topEnv ty2 (VPrimTy PTyInt)          
           pure (PrimBinOp op arg1E arg2E, VPrimTy PTyInt)          
         CarR pR -> do
           (pE, tyP) <- go depth ctxt pR
           (domT, depT) <- freshClos1 topEnv ctxt
-          unify topEnv tyP (VSigma metaVar domT depT)
+          unify depth topEnv tyP (VSigma metaVar domT depT)
           pure (pE, domT)
         CdrR pR -> do
           metaC <- gets snd
           (pE, tyP) <- go depth ctxt pR
           (domT, depT) <- freshClos1 topEnv ctxt
-          unify topEnv tyP (VSigma metaVar domT depT)
+          unify depth topEnv tyP (VSigma metaVar domT depT)
           let depSub = appClos metaC topEnv depT domT
           pure (pE, depSub)
         IndNatR tgt mot base step -> do
           metaC <- gets snd
           (tgtE, tgtTy) <- go depth ctxt tgt
           tgtV <- evalM evalCon tgtE
-          unify topEnv tgtTy VNat
+          unify depth topEnv tgtTy VNat
           (motE, motTy) <- go depth ctxt mot
           motV <- evalM evalCon motE
-          unify topEnv motTy indNatMot
+          unify depth topEnv motTy indNatMot
           (baseE, baseTy) <- go depth ctxt base
-          unify topEnv baseTy (doApply metaC topEnv motV VZero)
+          unify depth topEnv baseTy (doApply metaC topEnv motV VZero)
           (stepE, stepTy) <- go depth ctxt step
-          unify topEnv stepTy (indNatStepType motV)
+          unify depth topEnv stepTy (indNatStepType motV)
           pure (IndNat tgtE motE baseE stepE, doApply metaC topEnv stepTy tgtV)
         PiR n domR depR -> do
           (domE, domTy) <- go depth ctxt domR
-          unify topEnv domTy VU
+          unify depth topEnv domTy VU
           let ctxt' = bind ctxt n VU
           let depth' = depth + 1
           (depE, depTy) <- go depth' ctxt' depR
-          unify topEnv depTy VU
+          unify depth topEnv depTy VU
           pure (Pi n domE depE, VU)
         SigmaR n domR depR -> do
           (domE, domTy) <- go depth ctxt domR
-          unify topEnv domTy VU
+          unify depth topEnv domTy VU
           let ctxt' = bind ctxt n VU
           let depth' = depth + 1
           (depE, depTy) <- go depth' ctxt' depR
-          unify topEnv depTy VU
+          unify depth topEnv depTy VU
           pure (Pi n domE depE, VU)
         AppR funR argR -> do
           metaC <- gets snd
@@ -832,7 +813,7 @@ synth topEnv context = go 0 context
               VPi _ domT depT -> pure (domT, depT)
               _ -> do
                 (domT, depT) <- freshClos1 topEnv ctxt
-                unify topEnv funTySol (VPi newVar domT depT)
+                unify depth topEnv funTySol (VPi newVar domT depT)
                 pure (domT, depT)
           argE <- check topEnv ctxt argR domV
           argV <- evalM evalCon argE
@@ -847,11 +828,11 @@ synth topEnv context = go 0 context
         EqualR motR fromR toR -> do
           (motE, motTy) <- go depth ctxt motR
           motV <- evalM evalCon motE
-          unify topEnv motTy VU
+          unify depth topEnv motTy VU
           (fromE, fromTy) <- go depth ctxt fromR
-          unify topEnv fromTy motV
+          unify depth topEnv fromTy motV
           (toE, toTy) <- go depth ctxt toR
-          unify topEnv toTy motV
+          unify depth topEnv toTy motV
           pure (Equal motE fromE toE, VU)
         ReplaceR eqR motR baseR -> do
           metaC <- gets snd
@@ -860,7 +841,7 @@ synth topEnv context = go 0 context
           from <- freshMeta ctxt
           to   <- freshMeta ctxt
           eqMetaV <- evalM evalCon (Equal ty from to)
-          unify topEnv eqTy eqMetaV
+          unify depth topEnv eqTy eqMetaV
           motV <- evalM evalCon (Pi newVar ty U)
           motE <- check topEnv ctxt motR motV
           fromV <- evalM evalCon from
@@ -869,7 +850,7 @@ synth topEnv context = go 0 context
           pure (Replace eqE motE baseE, doApply metaC topEnv motV toV)
         IndAbsurdR tgtR tyR -> do
           (tgtE, tgtTy) <- go depth ctxt tgtR
-          unify topEnv tgtTy VAbsurd
+          unify depth topEnv tgtTy VAbsurd
           tyE <- check topEnv ctxt tyR VU
           tyV <- evalM evalCon tyE
           pure (IndAbsurd tgtE tyE, tyV)
