@@ -89,7 +89,7 @@ data RawExpr =
   | PrimTyR PrimTy                                           -- primitive types
   | PrimBinOpR PrimBinOp RawExpr RawExpr                     -- primitive ops
   | SrcPos SrcPos RawExpr
-  | SrcPSan SrcSpan RawExpr
+  | SrcSpan SrcSpan RawExpr
   deriving (Eq, Ord, Show)
 
 
