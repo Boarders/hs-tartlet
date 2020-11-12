@@ -128,6 +128,9 @@ eval metaC topEnv locEnv =
     vClos loc body = Closure loc body
   in
   \case
+    (Prim p) -> evalPrim p
+    (PrimBinOp op e1 e2) -> evalPrimBinOp op (localEval e1) (localEval e2)
+    (PrimTy pTy) -> VPrimTy pTy
     (Loc v) -> evalLocVar locEnv v
     (Top v) -> evalTopVar topEnv v
     (Pi n dom dep) -> VPi n (localEval dom) (vClos locEnv dep)
@@ -169,6 +172,30 @@ eval metaC topEnv locEnv =
 
 evalM :: (Monad m) => Ctxt -> Expr -> ElabM m Value
 evalM (topEnv, locEnv) expr = gets (\(_, ms) -> eval ms topEnv locEnv expr)
+
+evalPrim :: Prim -> Value
+evalPrim = VPrim
+
+
+evalPrimBinOp :: PrimBinOp -> Value -> Value -> Value
+evalPrimBinOp PAddI (VPrim (PInt n1)) (VPrim (PInt n2)) =
+  VPrim (PInt $ n1 + n2)
+evalPrimBinOp op (VNeutral (Just (VPrimTy PTyInt)) neu1) ~v2 =
+  VNeutral (Just (VPrimTy PTyInt)) (NPrimBinOp op neu1 (Normal (Just (VPrimTy PTyInt)) v2))
+evalPrimBinOp _ ~v1 ~v2 =
+  tyCheckError "evalPrimBinOpError" [v1, v2]
+
+
+  
+ {-
+doApply metaC topEnv (VNeutral (Just (VPi _ domT depT)) (NSpine h sp)) ~arg =
+  let
+    subDepT = appClos metaC topEnv depT arg
+    normArg = Normal (Just domT) arg
+  in
+    VNeutral (Just subDepT) (NSpine h (normArg : sp))  
+  undefined
+  -}
 
 evalLocVar :: LocalEnv -> Int -> Value
 evalLocVar locEnv depth =
@@ -422,7 +449,8 @@ readBackNeutral unf metaC topEnv depth =
         (\ ~(Normal ty val) acc -> App acc (localReadTyped ty val))
         hdN
         sp
---  (NVar i) -> Var (depth - i - 1)
+  (NPrimBinOp op neu norm) ->
+    PrimBinOp op (localReadNeutral neu) (localReadNormal norm)
   (NCar neu) -> Car (localReadNeutral neu)
   (NCdr neu) -> Cdr (localReadNeutral neu)
   (NIndNat n mot base step) ->
@@ -514,6 +542,8 @@ rename topEnv meta partialRename v = go partialRename v
       VPair car cdr -> Cons <$> (go pr car) <*> (go pr cdr)
       VNat -> pure Nat
       VZero -> pure Zero
+      VPrim p -> pure $ Prim p
+      VPrimTy pTy -> pure $ PrimTy pTy
       VAdd1 nat -> Add1 <$> go pr nat
       VEqual ty from to -> Equal <$> (go pr ty) <*> (go pr from) <*> (go pr to)
       VSame -> pure Same
@@ -535,7 +565,10 @@ rename topEnv meta partialRename v = go partialRename v
     NSpine (HMeta meta') _  | meta == meta' -> throwError OccursCheck
     NSpine (HMeta meta') sp | otherwise -> goSp pr (Meta meta') (fmap normalVal sp)
             
-      
+    NPrimBinOp op neu norm ->
+      PrimBinOp op
+        <$> goNeu pr neu
+        <*> go pr (normalVal norm)
     NCar neu' -> Car <$> goNeu pr neu'
     NCdr neu' -> Cdr <$> goNeu pr neu'
     NIndNat neu' norm1 norm2 norm3 ->
@@ -693,6 +726,8 @@ check topEnv = go 0
           unless (conv' metaC topEnv mot from to)
             (throwError $ ConvError from to)
           pure Same
+        (PrimR p@(PInt _), VPrimTy PTyInt) -> do
+          pure $ Prim p
         (HoleR, _) ->
           freshMeta con
         _ -> do
@@ -741,6 +776,12 @@ synth topEnv context = go 0 context
           (nExpr, ty) <- go depth ctxt n
           unify topEnv ty VNat
           pure (Add1 nExpr, VNat)
+        PrimBinOpR op arg1 arg2 -> do
+          (arg1E, ty1) <- go depth ctxt arg1
+          unify topEnv ty1 (VPrimTy PTyInt)
+          (arg2E, ty2) <- go depth ctxt arg2
+          unify topEnv ty2 (VPrimTy PTyInt)          
+          pure (PrimBinOp op arg1E arg2E, VPrimTy PTyInt)          
         CarR pR -> do
           (pE, tyP) <- go depth ctxt pR
           (domT, depT) <- freshClos1 topEnv ctxt

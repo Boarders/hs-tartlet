@@ -41,7 +41,7 @@ metaVar = "?meta"
 type Chars = String
 
 data PrimBinOp where
-  PIAdd :: PrimBinOp
+  PAddI :: PrimBinOp
   deriving (Eq, Ord, Show)
 
 data PrimTy where
@@ -83,12 +83,11 @@ data RawExpr =
   | UnivR                                                    -- Type
   | TheR RawExpr RawExpr                                     -- (exp : ty)
   | HoleR                                                    -- _
-  | PrimR PrimTy Prim                                        -- primitive data
-  | PrimBinOpR RawExpr RawExpr                               -- primitive ops
+  | PrimR Prim                                               -- primitive data
+  | PrimTyR PrimTy                                           -- primitive types
+  | PrimBinOpR PrimBinOp RawExpr RawExpr                     -- primitive ops
   deriving (Eq, Ord, Show)
 
-fromPrim :: Prim -> RawExpr
-fromPrim p@(PInt _) = PrimR PTyInt p
 
 -- Core AST after renaming and elaboration.
 data Expr =
@@ -119,8 +118,11 @@ data Expr =
   | Tick Chars                            -- 'a
   | U                                     -- Type
   | The Expr Expr                         -- (exp : ty)
-  | Meta MetaVar --to do : [Sp]               -- ?n
-  | InsertedMeta MetaVar [Bool]               -- ?n bd_1 ... bd_d
+  | Meta MetaVar --to do : [Sp]           -- ?n
+  | InsertedMeta MetaVar [Bool]           -- ?n bd_1 ... bd_d
+  | Prim Prim                             -- primitive data
+  | PrimTy PrimTy                         -- primitive types
+  | PrimBinOp PrimBinOp Expr Expr         -- primitive ops  
   deriving (Eq, Ord, Show)
 
 pattern Var :: Int -> Expr

@@ -53,6 +53,9 @@ data Value =
   | VU
   | VTop Name Neutral ~(Maybe Ty) ~Value
   | VNeutral (Maybe Ty) Neutral
+  | VPrim Prim
+  | VPrimTy PrimTy
+
 
 
 cmpConstrs :: Value -> Value -> Bool
@@ -66,6 +69,7 @@ cmpConstrs lhs rhs = case (lhs, rhs) of
   (VAtom, VAtom) -> True
   (VTick cs1, VTick cs2) -> cs1 == cs2
   (VU, VU) -> True
+  (VPrim p1, VPrim p2) -> p1 == p2
   (_,_) -> False
 
 
@@ -79,6 +83,8 @@ data Neutral =
   | NIndNat Neutral Normal Normal Normal
   | NReplace Neutral Normal Normal
   | NIndAbsurd Neutral Normal
+  | NPrimBinOp PrimBinOp Neutral Normal
+
 
 pattern NTop :: Name -> Neutral
 pattern NTop n = NSpine (HTop n) []
