@@ -52,7 +52,8 @@ Library Core
         ^>= 0.6
     , parsec
     , mtl
-        ^>= 2.2.2
+      ^>= 2.2.2
+    , prettyprinter
     , text
       ^>=1.2.3
     , transformers
@@ -71,10 +72,12 @@ Library Core
       Core.Parser.Parse
       Core.Parser.Token
       Core.Parser.Helper
+      Core.Parser.SrcLoc
       Core.TypeChecker
       Core.TypeChecker.Judgement
       Core.Elab
       Core.CEK.Eval
+      Core.Pretty.Expression
       -- Core.PrettyPrint
 
   default-language:
