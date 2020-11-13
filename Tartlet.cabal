@@ -26,6 +26,8 @@ executable repl
     , haskeline
         ^>= 0.7.5.0
     , parsec
+    , prettyprinter
+    , prettyprinter-ansi-terminal
     , text
         ^>=1.2.3
     , transformers
@@ -54,6 +56,7 @@ Library Core
     , mtl
       ^>= 2.2.2
     , prettyprinter
+    , prettyprinter-ansi-terminal    
     , text
       ^>=1.2.3
     , transformers
@@ -78,6 +81,7 @@ Library Core
       Core.Elab
       Core.CEK.Eval
       Core.Pretty.Expression
+      Core.Pretty.Error
       -- Core.PrettyPrint
 
   default-language:
