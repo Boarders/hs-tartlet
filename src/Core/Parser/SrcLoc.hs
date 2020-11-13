@@ -3,6 +3,9 @@
 module Core.Parser.SrcLoc where
 
 import Core.Parser.Token
+import Data.Text (Text)
+import qualified Data.Text as Text
+import Data.Char (isSpace)
 
 
 newtype SrcPos = SrcPosCon {getSrcPos :: AlexPosn}
@@ -43,3 +46,17 @@ getCol (SrcPos _ _ c) = c
 
 tokSrcPos :: Token -> SrcPos
 tokSrcPos = srcPos . getPos
+
+getSrcText :: Int -> Int -> SrcPos -> Text -> Text
+getSrcText maxLine _ (SrcPos _ line col) t = textStart
+  where
+    textLine :: Text
+    textLine = ((!! (line - 1)) . Text.lines) $ t
+
+    leftBuffer = col
+
+    textStart :: Text
+    textStart
+      | Text.length textLine <= maxLine = textLine
+      | otherwise =
+          Text.take maxLine (Text.drop (leftBuffer - 1) textLine)
