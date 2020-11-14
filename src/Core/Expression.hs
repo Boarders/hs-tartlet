@@ -88,8 +88,9 @@ data RawExpr =
   | PrimR Prim                                               -- primitive data
   | PrimTyR PrimTy                                           -- primitive types
   | PrimBinOpR PrimBinOp RawExpr RawExpr                     -- primitive ops
-  | SrcPos SrcPos RawExpr
-  | SrcSpan SrcSpan RawExpr
+  | LetR Name RawExpr RawExpr                                -- let x = v; body
+  | SrcPosR SrcPos RawExpr                                   -- expr with src pos
+
   deriving (Eq, Ord, Show)
 
 
