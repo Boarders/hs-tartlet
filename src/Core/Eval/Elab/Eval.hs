@@ -17,7 +17,8 @@ import qualified Data.IntMap as IntMap
 import Data.IntMap ( IntMap )
 -- Note: test strict vs lazy
 import Control.Monad.State
-import Data.Bifunctor
+import Core.Parser.SrcLoc
+import Control.Lens (lens, Lens', use, uses, modifying)
 
 data ElabError = ElabError
 data UnifyError =
@@ -42,7 +43,22 @@ type MCtxt = IntMap Value
 
 
 -- To do add a reader for the topEnv to this
-type ElabM m = StateT (Int, MCtxt) m
+data ElabState = ElabState
+  { currentMetaCon   :: !MCtxt
+  , currentFreshMeta :: !Int
+  , currentSrcPos    :: !SrcPos
+  }
+
+_metaCon :: Lens' ElabState MCtxt
+_metaCon = lens currentMetaCon (\e m -> e {currentMetaCon = m})
+
+_freshMeta :: Lens' ElabState Int
+_freshMeta = lens currentFreshMeta (\e m -> e {currentFreshMeta = m})
+
+_srcPos :: Lens' ElabState SrcPos
+_srcPos = lens currentSrcPos (\e m -> e {currentSrcPos = m})
+
+type ElabM m = StateT ElabState m
 
 
 type Bind = Bool
@@ -94,7 +110,8 @@ force metaC topEnv = \case
 -- Perform force inside Elab monad.
 forceM :: Monad m => TopEnv -> Value -> ElabM m Value
 forceM topEnv v =
-  gets (\(_, mCtxt) -> force mCtxt topEnv v)
+  uses _metaCon (\m -> force m topEnv v)
+  --gets (\elabState -> force (view _metaCon elabState) topEnv v)
   
 -- For now conv' does a full readback of values and then checks for equality.
 -- There is probably a better way to do this where we only read back those values
@@ -162,7 +179,9 @@ eval metaC topEnv locEnv =
 
 
 evalM :: (Monad m) => Ctxt -> Expr -> ElabM m Value
-evalM (topEnv, locEnv) expr = gets (\(_, ms) -> eval ms topEnv locEnv expr)
+evalM (topEnv, locEnv) expr =
+  uses _metaCon (\m -> eval m topEnv locEnv expr)
+--  gets (\elabState -> eval (view _metaCon elabState) topEnv locEnv expr)
 
 evalPrim :: Prim -> Value
 evalPrim = VPrim
@@ -498,7 +517,7 @@ rename topEnv meta partialRename v = go partialRename v
     
   go :: PartialRename -> Value -> ElabM m Expr
   go pr t = do
-    (_, metaC) <- get
+    metaC <- use _metaCon
     tV <- forceM topEnv t
     let localAppClos = appClos metaC topEnv
     case tV of
@@ -570,7 +589,7 @@ rename topEnv meta partialRename v = go partialRename v
 
 quoteM :: (Monad m) => TopEnv ->  Bool -> Int -> (Maybe Ty) -> Value -> ElabM m Expr
 quoteM topEnv unf depth ty val =
-  gets $ \ (_, metaC) -> readBackTyped unf metaC topEnv depth ty val
+  uses _metaCon \m -> readBackTyped unf m topEnv depth ty val
 
 valueToString :: Value -> String
 valueToString = undefined
@@ -599,7 +618,7 @@ solve topEnv depth meta sp rhsV = do
   pr <- invert topEnv depth sp
   renamedRHS <- rename topEnv meta pr rhsV
   solution <- evalM (topEnv, mempty) $ lams (domL pr) renamedRHS
-  modify' (second $ IntMap.insert meta solution)
+  modifying _metaCon (IntMap.insert meta solution)
 
 
 unify :: forall m . (MonadError UnifyError m)
@@ -607,7 +626,7 @@ unify :: forall m . (MonadError UnifyError m)
 unify d topEnv = go d where
   go :: Int -> Value -> Value -> ElabM m ()
   go depth lhs rhs = do
-    metaC <- gets snd
+    metaC <- use _metaCon
     let localAppClos = appClos metaC topEnv
     let localDoApply = doApply metaC topEnv
     case (force metaC topEnv lhs, force metaC topEnv rhs) of
@@ -676,19 +695,18 @@ freshMeta
   :: (Monad m)
   => Con -> ElabM m Expr
 freshMeta ctxt = do
-  (meta, _) <- get
-  modify' (first (+ 1))
-  pure $ InsertedMeta meta (bounds ctxt)
+  meta <- use _freshMeta
+  modifying _freshMeta (+ 1)
+  pure (InsertedMeta meta (bounds ctxt))
 
 check :: forall m . (Monad m, MonadError UnifyError m) =>
   TopEnv -> Con -> RawExpr -> Ty -> ElabM m Expr
 check topEnv ctxt = go (depth ctxt) ctxt
   where
-
     go :: Int -> Con -> RawExpr -> Ty -> ElabM m Expr
     go depth con exprR ty = do
       let evalCon = (topEnv, localEnv con)
-      (_, metaC) <- get
+      metaC <- use _metaCon
       let localAppClos = appClos metaC topEnv
       tySolved <- forceM topEnv ty
       case (exprR, tySolved) of
@@ -769,14 +787,14 @@ synth topEnv context = go 0 context
           unify depth topEnv tyP (VSigma metaVar domT depT)
           pure (pE, domT)
         CdrR pR -> do
-          metaC <- gets snd
+          metaC <- use _metaCon
           (pE, tyP) <- go depth ctxt pR
           (domT, depT) <- freshClos1 topEnv ctxt
           unify depth topEnv tyP (VSigma metaVar domT depT)
           let depSub = appClos metaC topEnv depT domT
           pure (pE, depSub)
         IndNatR tgt mot base step -> do
-          metaC <- gets snd
+          metaC <- use _metaCon
           (tgtE, tgtTy) <- go depth ctxt tgt
           tgtV <- evalM evalCon tgtE
           unify depth topEnv tgtTy VNat
@@ -805,7 +823,7 @@ synth topEnv context = go 0 context
           unify depth topEnv depTy VU
           pure (Pi n domE depE, VU)
         AppR funR argR -> do
-          metaC <- gets snd
+          metaC <- use _metaCon
           (funE, funTy) <- go depth ctxt funR
           funTySol <- forceM topEnv funTy
           (domV, depV) <-
@@ -819,7 +837,7 @@ synth topEnv context = go 0 context
           argV <- evalM evalCon argE
           pure (App funE argE, appClos metaC topEnv depV argV)
         LamR n bodyR -> do
-          metaC <- gets snd
+          metaC <- use _metaCon
           domE  <- freshMeta ctxt
           domV  <- evalM evalCon domE
           (bodyE, bodyTy) <- go (depth + 1) (bind ctxt n domV) bodyR
@@ -835,7 +853,7 @@ synth topEnv context = go 0 context
           unify depth topEnv toTy motV
           pure (Equal motE fromE toE, VU)
         ReplaceR eqR motR baseR -> do
-          metaC <- gets snd
+          metaC <- use _metaCon
           (eqE, eqTy) <- go depth ctxt eqR
           ty   <- freshMeta ctxt
           from <- freshMeta ctxt

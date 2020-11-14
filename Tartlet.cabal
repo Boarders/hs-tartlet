@@ -53,6 +53,7 @@ Library Core
     , containers
         ^>= 0.6
     , parsec
+    , lens
     , mtl
       ^>= 2.2.2
     , prettyprinter
