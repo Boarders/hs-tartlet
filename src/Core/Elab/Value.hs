@@ -11,6 +11,7 @@ type LocalEnv = [Value]
 type TyEnv = [Ty]
 type Ctxt = (TopEnv, LocalEnv)
 type VEnv = [Value]
+type Spine = [Value]
   --Env Value
 
 extendEnv :: LocalEnv -> Value -> LocalEnv
@@ -49,8 +50,8 @@ data Value =
   | VAtom
   | VTick Chars
   | VU
-  | VTop Name Neutral ~(Maybe Ty) ~Value
-  | VNeutral (Maybe Ty) Neutral
+  | VTop Name Spine ~Ty ~Value
+  | VNeutral Neutral
   | VPrim Prim
   | VPrimTy PrimTy
 
@@ -75,13 +76,13 @@ data Head = HMeta Meta | HVar Int | HTop Name
   deriving (Eq)
 
 data Neutral =
-    NSpine Head [Normal]
+    NSpine Head [Value]
   | NCar Neutral
   | NCdr Neutral
-  | NIndNat Neutral Normal Normal Normal
-  | NReplace Neutral Normal Normal
-  | NIndAbsurd Neutral Normal
-  | NPrimBinOp PrimBinOp Neutral Normal
+  | NIndNat Neutral Value Value Value
+  | NReplace Neutral Value Value
+  | NIndAbsurd Neutral Value
+  | NPrimBinOp PrimBinOp Neutral Value
 
 
 pattern NTop :: Name -> Neutral
@@ -90,19 +91,18 @@ pattern NTop n = NSpine (HTop n) []
 pattern NVar :: Int -> Neutral
 pattern NVar n = NSpine (HVar n) []
 
-pattern VVarT :: Ty -> Int -> Value
-pattern VVarT ty n = VNeutral (Just ty) (NSpine (HVar n) [])
-
 pattern VVar :: Int -> Value
-pattern VVar n = VNeutral Nothing (NSpine (HVar n) [])
+pattern VVar n = VNeutral (NSpine (HVar n) [])
 
 pattern VMeta :: Int -> Value
-pattern VMeta n = VNeutral Nothing (NSpine (HMeta n) [])
+pattern VMeta n = VNeutral (NSpine (HMeta n) [])
 
-pattern VMetaSp :: Int -> [Normal] -> Value
-pattern VMetaSp m sp = VNeutral Nothing (NSpine (HMeta m) sp)
+pattern VMetaSp :: Int -> [Value] -> Value
+pattern VMetaSp m sp = VNeutral (NSpine (HMeta m) sp)
+
 
 data Normal = Normal
-  { normalTy  :: Maybe Ty
+  { normalTy  :: Ty
   , normalVal :: Value
   }
+
