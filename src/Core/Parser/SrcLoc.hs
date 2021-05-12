@@ -5,7 +5,6 @@ module Core.Parser.SrcLoc where
 import Core.Parser.Token
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Data.Char (isSpace)
 
 
 newtype SrcPos = SrcPosCon {getSrcPos :: AlexPosn}

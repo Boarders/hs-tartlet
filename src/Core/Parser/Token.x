@@ -66,7 +66,8 @@ data Token = Token
 data TokenType =
   LeftBracket   |
   RightBracket  |  
-  Var Chars     |
+  Int Int       |
+  Var String    |
   Ann           |
   Arr           |
   Fun           |
