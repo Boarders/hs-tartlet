@@ -137,7 +137,7 @@ eval metaC topEnv locEnv =
       VSigma a (localEval carT) (vClos locEnv cdrT)
     (Cons f s) -> VPair (localEval f) (localEval s)
     (Car p) -> doCar (localEval p)
-    (Cdr p) -> doCdr metaC topEnv (localEval p)
+    (Cdr p) -> doCdr (localEval p)
     Nat -> VNat
     Zero -> VZero
     (Add1 n) -> VAdd1 (localEval n)
@@ -153,7 +153,7 @@ eval metaC topEnv locEnv =
       -> VEqual (localEval ty) (localEval from) (localEval to)
     Same -> VSame
     (Replace eq mot base) ->
-      doReplace metaC topEnv (localEval eq) (localEval mot) (localEval base)
+      doReplace (localEval eq) (localEval mot) (localEval base)
     Trivial -> VTrivial
     Sole -> VSole
     Absurd -> VAbsurd
@@ -226,12 +226,11 @@ tyCheckError funName _ = error $
 
 doApply  :: MCtxt -> TopEnv -> Value -> Value -> Value
 doApply metaC topEnv (VLam _ fn) ~arg = appClos metaC topEnv fn arg
-doApply metaC topEnv (VNeutral (NSpine h sp)) ~arg =
+doApply _ _ (VNeutral (NSpine h sp)) ~arg =
     VNeutral (NSpine h (arg : sp))
-doApply metaC topEnv (VTop var sp (VPi _ domT depT) val) ~arg =
+doApply metaC topEnv (VTop var sp (VPi _ _ depT) val) ~arg =
   let
     subDepT = appClos metaC topEnv depT arg
-    normArg = Normal domT arg
     spine'  = (arg : sp)
   in
     VTop var spine' subDepT (doApply metaC topEnv val arg)
@@ -260,11 +259,11 @@ doCar (VNeutral neu) = VNeutral (NCar neu)
 doCar val = tyCheckError "doCar" [val]
 
 
-doCdr :: MCtxt -> TopEnv -> Value -> Value
-doCdr _ _ (VPair _ s) = s
-doCdr metaC topEnv neuV@(VNeutral neu) =
+doCdr :: Value -> Value
+doCdr (VPair _ s) = s
+doCdr (VNeutral neu) =
     VNeutral (NCdr neu)
-doCdr _ _ val = tyCheckError "doCdr" [val]
+doCdr val = tyCheckError "doCdr" [val]
 
 
 doIndAbsurd :: Value -> Value -> Value
@@ -273,18 +272,18 @@ doIndAbsurd (VNeutral neu) mot =
 doIndAbsurd v mot = tyCheckError "doIndAbsurd" [v, mot]
 
 
-doReplace :: MCtxt -> TopEnv -> Value -> Value -> Value -> Value
-doReplace _ _ VSame _ base = base
-doReplace metaC topEnv (VNeutral neu) mot base =
+doReplace :: Value -> Value -> Value -> Value
+doReplace VSame _ base = base
+doReplace (VNeutral neu) mot base =
     VNeutral (NReplace neu mot base)
-doReplace _ _ eq mot base = tyCheckError "doReplace" [eq, mot, base]
+doReplace eq mot base = tyCheckError "doReplace" [eq, mot, base]
 
 
 doIndNatStep :: MCtxt -> TopEnv -> Value -> Value -> Value -> Value -> Value
 doIndNatStep _ _ VZero _ base _ = base
 doIndNatStep metaC topEnv (VAdd1 nV) mot base step =
   doApply metaC topEnv (doApply metaC topEnv step nV) (doIndNatStep metaC topEnv nV mot base step)
-doIndNatStep metaC topEnv tgt@(VNeutral neu) mot base step =
+doIndNatStep _ _ (VNeutral neu) mot base step =
     VNeutral
       (NIndNat neu
         mot
@@ -310,11 +309,11 @@ readBackExpr unf metaC topEnv depth val = go depth val
     case force metaC topEnv v of
         VZero -> Zero
         VAdd1 nV -> Add1 (go d nV)
-        VTop v sp _ topV ->
+        VTop topVar sp _ topV ->
           if unf then
             go d topV
           else
-            readBackSpine unf metaC topEnv (Top v) sp
+            readBackSpine unf metaC topEnv (Top topVar) sp
         fun@(VLam name _) ->
           let
             varV = VNeutral (NVar fresh)
@@ -655,7 +654,7 @@ check topEnv ctxt = go (depth ctxt) ctxt
           carE <- go depth con carR domT
           carV <- evalM evalCon carE
           go depth con cdrR (localAppClos depT carV)
-        (SameR, VEqual mot from to) -> do
+        (SameR, VEqual _ from to) -> do
           unless (conv' metaC topEnv from to)
             (throwError $ ConvError from to)
           pure Same
