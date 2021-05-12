@@ -70,9 +70,11 @@ Library Core
   exposed-modules:
       Core.Expression
       Core.Eval
-      Core.Eval.Elab.Context
-      Core.Eval.Elab.Value
-      Core.Eval.Elab.Eval
+--      Core.Eval.Elab.Context
+--      Core.Eval.Elab.Value
+      Core.Elab.Eval
+      Core.Elab.Value
+--      Core.Eval.Elab.Eval
       Core.Parser.Parse
       Core.Parser.Token
       Core.Parser.Helper

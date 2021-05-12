@@ -90,6 +90,7 @@ data RawExpr =
   | PrimBinOpR PrimBinOp RawExpr RawExpr                     -- primitive ops
   | LetR Name RawExpr RawExpr                                -- let x = v; body
   | SrcPosR SrcPos RawExpr                                   -- expr with src pos
+  | MetaR Name                                               -- ?
 
   deriving (Eq, Ord, Show)
 
@@ -100,6 +101,7 @@ data Expr =
   | Top Name                              -- top level name
   | Pi Name Expr Expr                     -- (a : A) -> B
   | Lam Name Expr                         -- fun x => expr
+  | Let Name Expr Expr                    -- let x = v; body
   | App Expr Expr                         -- rator rand
   | Sigma Name Expr Expr                  -- ((a : A) * B)
   | Cons Expr Expr                        -- cons fst snd
@@ -123,11 +125,11 @@ data Expr =
   | Tick Chars                            -- 'a
   | U                                     -- Type
   | The Expr Expr                         -- (exp : ty)
-  | Meta MetaVar --to do : [Sp]           -- ?n
-  | InsertedMeta MetaVar [Bool]           -- ?n bd_1 ... bd_d
   | Prim Prim                             -- primitive data
   | PrimTy PrimTy                         -- primitive types
-  | PrimBinOp PrimBinOp Expr Expr         -- primitive ops  
+  | PrimBinOp PrimBinOp Expr Expr         -- primitive ops
+  | Meta MetaVar
+  | InsertedMeta MetaVar [Bool]
   deriving (Eq, Ord, Show)
 
 pattern Var :: Int -> Expr
@@ -135,6 +137,8 @@ pattern Var n <- Loc n
   where
     Var v = Var v
 
+pattern Arr :: Expr -> Expr -> Expr
+pattern Arr e1 e2 = Pi "_" e1 e2
 {-
 alphaEquiv :: Expr -> Expr -> Bool
 alphaEquiv e1 e2 = alphaHelper 0 (Map.empty) e1 (Map.empty) e2
