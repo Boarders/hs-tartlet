@@ -13,14 +13,16 @@ module Core.Parser.Helper
   where
 
 ----------------------------------------------------------------------------
+-- Core
 import Core.Parser.Token
+
+-- bytestring
 import Data.ByteString.Lazy as ByteString
 ----------------------------------------------------------------------------
 
 -- For readablity - these are the interfaces Happy expects:
 
 type Parser a = Alex a
-
 
 thenP :: Parser a -> (a -> Parser b) -> Parser b
 thenP = (>>=)
