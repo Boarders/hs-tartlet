@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -fno-warn-unused-matches #-}
 module Core.Parser.Token where
 
+import qualified Core.Quantity as Quantity
 import qualified Data.ByteString.Lazy.Char8 as Char8
 import qualified Data.ByteString.Lazy as ByteString
 }
@@ -25,8 +26,11 @@ tokens :-
   cons        { tok Cons }
   car         { tok Car  }
   cdr         { tok Cdr  }
-  \Nat | ℕ    { tok Nat  }
-  0 | zero    { tok Zero }
+  Nat | ℕ     { tok Nat  }
+  zero        { tok NatZero }
+  0           { tok Zero }
+  1           { tok One  }
+  W           { tok Inf  }
   succ | add1 { tok Add1 }
   ind\-Nat    { tok IndNat }
   Eq          { tok  Eq }
@@ -78,6 +82,9 @@ data TokenType =
   Cdr           |
   Nat           |
   Zero          |
+  One           |
+  Inf           |
+  NatZero       |
   Add1          |
   IndNat        |
   Eq            |
@@ -107,6 +114,16 @@ unVar _ = error "Token.x.unVar: used on argument without Var"
 unTick :: TokenType -> Chars
 unTick (Tick c) = c
 unTick _ = error "Token.x.unTick: used on argument without Tick"
+
+
+getQuantity :: Token -> Quantity.Quantity
+getQuantity = toQuantity . getToken
+
+toQuantity :: TokenType -> Quantity.Quantity
+toQuantity Zero = Quantity.Zero
+toQuantity One  = Quantity.One
+toQuantity Inf  = Quantity.Inf
+toQuantity _    = error "Token.x.toQuantity: used on non-quantity argument"
 
 alexEOF :: Alex Token
 alexEOF = do
