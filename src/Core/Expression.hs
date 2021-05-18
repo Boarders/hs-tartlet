@@ -22,7 +22,10 @@ module Core.Expression where
 --import Data.Map (Map)
 --import Data.String (IsString(..))
 --import Data.Kind (Type)
+
+-- Core
 import Core.Parser.SrcLoc
+import Core.Quantity
 
 
 type Name  = String
@@ -33,11 +36,20 @@ type MetaVar = Int
 newVar :: Name
 newVar = "x"
 
-dummyVar :: Name
-dummyVar ="_"
+dummyBindInfo :: BindInfo
+dummyBindInfo =
+  BindInfo
+    { bind_name     = "_"
+    , bind_quantity = Inf
+    }
 
-metaVar :: Name
-metaVar = "?meta"
+
+metaBindInfo :: BindInfo
+metaBindInfo =
+  BindInfo
+  { bind_name     = "?meta"
+  , bind_quantity = Inf
+  }
 
 type Chars = String
 
@@ -53,16 +65,36 @@ data Prim  where
   PInt :: Int -> Prim
   deriving (Eq, Ord, Show)
 
+data BindInfo = BindInfo
+  { bind_name     :: Name
+  , bind_quantity :: Quantity
+  }
+  deriving (Eq, Ord, Show)
 
+-- TO DO: add type synonym / newtype for RawExpr which are to be interpretted as types
+-- and use in places where it would be appropriate. Do the same also for Expr
+-- e.g.
+-- LetR Name RawExpr RawExpr RawExpr
+-- should really look something like
+
+--   LetR Name RawType RawBind RawExpr
+--
+-- One idea is to follow McBride and add a Bind newtype so we have:
+--
+-- newtype Bind e = Bind {unBind :: e}
+--
+-- type RawBind = Bind RawExpr
+--
+-- Unclear if this alone would just be annoying but worth an experiment.
 
 -- The Raw AST which we feed to elaboration
 data RawExpr =
     LocR Name                                                -- local variable
   | TopR String                                              -- top level name
-  | PiR Name RawExpr RawExpr                                 -- (a : A) -> B
+  | PiR BindInfo RawExpr RawExpr                            -- (q a : A) -> B
   | LamR Name RawExpr                                        -- fun x => expr
   | AppR RawExpr RawExpr                                     -- rator rand
-  | SigmaR Name RawExpr RawExpr                              -- ((a : A) * B)
+  | SigmaR BindInfo RawExpr RawExpr                              -- ((q a : A) * B)
   | ConsR RawExpr RawExpr                                    -- cons fst snd
   | CarR RawExpr                                             -- car p
   | CdrR RawExpr                                             -- cdr p
@@ -88,22 +120,29 @@ data RawExpr =
   | PrimR Prim                                               -- primitive data
   | PrimTyR PrimTy                                           -- primitive types
   | PrimBinOpR PrimBinOp RawExpr RawExpr                     -- primitive ops
-  | LetR Name RawExpr RawExpr                                -- let x = v; body
+  | LetR BindInfo RawExpr RawExpr RawExpr                        -- let x : A = v; body
   | SrcPosR SrcPos RawExpr                                   -- expr with src pos
   | MetaR Name                                               -- ?
 
   deriving (Eq, Ord, Show)
 
 
+data CoreDef = CoreDef
+  { coreDef_name :: Name 
+  , coreDef_Expr :: Expr
+  }
+  deriving (Eq, Ord, Show)
+
+
 -- Core AST after renaming and elaboration.
 data Expr =
-    Loc DBInd                               -- local variable
+    Loc DBInd                             -- local variable
   | Top Name                              -- top level name
-  | Pi Name Expr Expr                     -- (a : A) -> B
+  | Pi BindInfo Expr Expr                 -- (q a : A) -> B
   | Lam Name Expr                         -- fun x => expr
-  | Let Name Expr Expr                    -- let x = v; body
+  | Let Name Expr Expr Expr                    -- let x : A = v; body
   | App Expr Expr                         -- rator rand
-  | Sigma Name Expr Expr                  -- ((a : A) * B)
+  | Sigma BindInfo Expr Expr              -- ((q a : A) * B)
   | Cons Expr Expr                        -- cons fst snd
   | Car Expr                              -- car p
   | Cdr Expr                              -- cdr p
@@ -137,8 +176,8 @@ pattern Var n <- Loc n
   where
     Var v = Var v
 
-pattern Arr :: Expr -> Expr -> Expr
-pattern Arr e1 e2 = Pi "_" e1 e2
+--pattern Arr :: Expr -> Expr -> Expr
+--pattern Arr e1 e2 = Pi "_" e1 e2
 {-
 alphaEquiv :: Expr -> Expr -> Bool
 alphaEquiv e1 e2 = alphaHelper 0 (Map.empty) e1 (Map.empty) e2
